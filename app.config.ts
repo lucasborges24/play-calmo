@@ -8,13 +8,13 @@ const config: ExpoConfig = {
   owner: 'lucasborges24',
   version: '0.1.0',
   orientation: 'portrait',
-  icon: './assets/icon.png',
+  icon: './assets/brand/icon-1024.png',
   scheme: 'ytcurator',
   userInterfaceStyle: 'automatic',
   splash: {
-    image: './assets/splash.png',
+    image: './assets/brand/icon-512.png',
     resizeMode: 'contain',
-    backgroundColor: '#000000',
+    backgroundColor: '#F7F7F5',
   },
   assetBundlePatterns: ['**/*'],
   android: {
@@ -22,10 +22,13 @@ const config: ExpoConfig = {
     versionCode: 1,
     allowBackup: false,
     adaptiveIcon: {
-      foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#000000',
+      foregroundImage: './assets/brand/icon-192.png',
+      backgroundColor: '#E53535',
     },
     permissions: ['INTERNET'],
+  },
+  web: {
+    favicon: './assets/brand/favicon-32.png',
   },
   plugins: ['expo-router', 'expo-secure-store'],
   experiments: {
