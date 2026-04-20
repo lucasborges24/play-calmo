@@ -2,16 +2,16 @@ import { Text, View } from 'react-native';
 
 import { ScreenShell } from '@/shared/components/screen-shell';
 
-export default function ModalScreen() {
+export default function SettingsScreen() {
   return (
     <ScreenShell
-      eyebrow="Modal"
-      title="Rota opcional"
-      description="O fluxo principal do app não depende desta tela neste momento."
+      eyebrow="Configurações"
+      title="Preferências locais"
+      description="Ajustes de meta diária, limite por job e toggle de trending entram aqui."
     >
       <View className="rounded-2xl border border-border-light bg-background-light p-4 dark:border-border-dark dark:bg-background-dark">
         <Text className="text-sm leading-6 text-foreground-light dark:text-foreground-dark">
-          Mantida como placeholder simples durante a Fase 0.
+          O toggle de trending ficará desligado por padrão.
         </Text>
       </View>
     </ScreenShell>
