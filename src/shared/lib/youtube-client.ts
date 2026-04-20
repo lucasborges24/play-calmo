@@ -40,16 +40,16 @@ async function ensureFreshAccessToken(): Promise<string> {
 }
 
 export const youtube = ky.create({
-  prefix: YT_BASE,
+  prefixUrl: YT_BASE,
   hooks: {
     beforeRequest: [
-      async ({ request }) => {
+      async (request) => {
         const token = await ensureFreshAccessToken();
         request.headers.set('Authorization', `Bearer ${token}`);
       },
     ],
     afterResponse: [
-      async ({ response }) => {
+      async (_request, _options, response) => {
         if (response.status === 401) {
           await signOut();
         }
