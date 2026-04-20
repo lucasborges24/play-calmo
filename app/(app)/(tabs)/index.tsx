@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { RefreshCw } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -53,6 +54,7 @@ export default function HomeScreen() {
           <View className="gap-3">
             <Pressable
               className="items-center justify-center rounded-[20px]"
+              onPress={() => console.log('run job')}
               style={{
                 backgroundColor: theme.surface,
                 borderColor: theme.border,
@@ -61,7 +63,7 @@ export default function HomeScreen() {
                 width: 48,
               }}
             >
-              <Ionicons color={theme.text} name="notifications-outline" size={22} />
+              <RefreshCw color={theme.text} size={20} />
             </Pressable>
             <View
               className="items-center justify-center rounded-[20px]"
@@ -168,7 +170,7 @@ export default function HomeScreen() {
           ctaLabel="Abrir biblioteca"
           description="Sua curadoria do dia já está limpa. Acesse a biblioteca para ver o que ficou guardado."
           icon="sparkles-outline"
-          onCta={() => router.push('/(tabs)/biblioteca')}
+          onCta={() => router.push('/(app)/(tabs)/library')}
           title="Fila encerrada"
         />
       ) : (

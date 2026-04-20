@@ -46,6 +46,15 @@ module.exports = {
           light: '#E53535',
           dark: '#E53535',
         },
+        'primary-foreground': '#FFFFFF',
+        accent: {
+          light: '#F6E6C7',
+          dark: '#362916',
+        },
+        'muted-foreground': {
+          light: '#9B9A94',
+          dark: '#686866',
+        },
       },
       fontFamily: {
         sans: ['DM Sans', 'System', 'sans-serif'],

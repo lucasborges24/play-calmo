@@ -45,11 +45,7 @@ export default function ModalScreen() {
           <Panel key={item.title} style={{ alignItems: 'center', flexDirection: 'row', gap: 16 }}>
             <View
               className="items-center justify-center rounded-[20px]"
-              style={{
-                backgroundColor: theme.primarySoft,
-                height: 52,
-                width: 52,
-              }}
+              style={{ backgroundColor: theme.primarySoft, height: 52, width: 52 }}
             >
               <Ionicons color={theme.primary} name={item.icon} size={24} />
             </View>
@@ -69,7 +65,7 @@ export default function ModalScreen() {
         <PrimaryButton label="Voltar ao app" onPress={() => router.back()} />
         <SecondaryButton
           label="Abrir configurações"
-          onPress={() => router.push('/(tabs)/configuracoes')}
+          onPress={() => router.push('/(app)/(tabs)/settings')}
         />
       </Panel>
     </AppScrollScreen>

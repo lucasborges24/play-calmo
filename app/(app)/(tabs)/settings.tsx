@@ -34,24 +34,17 @@ export default function SettingsScreen() {
   const canDecrease = goalMinutes > 30;
 
   const handleIncrease = () => {
-    if (!canIncrease) {
-      return;
-    }
-
+    if (!canIncrease) return;
     setGoalMinutes(goalMinutes + 30);
     noteGoalIncrease(today);
   };
 
   const handleDecrease = () => {
-    if (!canDecrease) {
-      return;
-    }
-
+    if (!canDecrease) return;
     if (!confirmDecrease) {
       setConfirmDecrease(true);
       return;
     }
-
     setGoalMinutes(goalMinutes - 30);
     setConfirmDecrease(false);
   };
@@ -147,10 +140,7 @@ export default function SettingsScreen() {
             {confirmDecrease ? (
               <View className="gap-3">
                 <PrimaryButton label="Confirmar -30 min" onPress={handleDecrease} />
-                <SecondaryButton
-                  label="Cancelar"
-                  onPress={() => setConfirmDecrease(false)}
-                />
+                <SecondaryButton label="Cancelar" onPress={() => setConfirmDecrease(false)} />
               </View>
             ) : (
               <View className="flex-row items-center gap-3">
@@ -165,9 +155,7 @@ export default function SettingsScreen() {
                     width: 48,
                   }}
                 >
-                  <Text className="text-[24px] font-bold" style={{ color: theme.text }}>
-                    −
-                  </Text>
+                  <Text className="text-[24px] font-bold" style={{ color: theme.text }}>−</Text>
                 </Pressable>
 
                 <View

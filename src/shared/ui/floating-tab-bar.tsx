@@ -1,34 +1,17 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import { CalendarCheck, Library, Rss, Settings } from 'lucide-react-native';
+import type { LucideIcon } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/shared/theme/provider';
 
-const TAB_CONFIG = {
-  index: {
-    icon: 'sparkles',
-    label: 'Hoje',
-  },
-  inscricoes: {
-    icon: 'logo-youtube',
-    label: 'Inscrições',
-  },
-  biblioteca: {
-    icon: 'library',
-    label: 'Biblioteca',
-  },
-  configuracoes: {
-    icon: 'settings',
-    label: 'Config',
-  },
-} as const;
-
-type RouteName = keyof typeof TAB_CONFIG;
-
-function isConfiguredRoute(name: string): name is RouteName {
-  return name in TAB_CONFIG;
-}
+const TAB_CONFIG: Record<string, { Icon: LucideIcon; label: string }> = {
+  index: { Icon: CalendarCheck, label: 'Hoje' },
+  subscriptions: { Icon: Rss, label: 'Inscrições' },
+  library: { Icon: Library, label: 'Biblioteca' },
+  settings: { Icon: Settings, label: 'Configurações' },
+};
 
 export function FloatingTabBar({ descriptors, navigation, state }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -48,25 +31,26 @@ export function FloatingTabBar({ descriptors, navigation, state }: BottomTabBarP
       }}
     >
       <View
-        className="flex-row rounded-[30px] p-2"
         style={{
           backgroundColor: theme.surface,
           borderColor: theme.borderStrong,
+          borderRadius: 30,
           borderWidth: 1,
+          elevation: 12,
+          flexDirection: 'row',
+          padding: 8,
           shadowColor: theme.shadow,
           shadowOffset: { width: 0, height: 14 },
           shadowOpacity: theme.dark ? 0.35 : 1,
           shadowRadius: 24,
-          elevation: 12,
         }}
       >
         {state.routes.map((route, index) => {
-          if (!isConfiguredRoute(route.name)) {
-            return null;
-          }
+          const tab = TAB_CONFIG[route.name];
+          if (!tab) return null;
 
           const isFocused = state.index === index;
-          const tab = TAB_CONFIG[route.name];
+          const { Icon, label } = tab;
           const accessibilityLabel = descriptors[route.key]?.options.tabBarAccessibilityLabel;
 
           const onPress = () => {
@@ -75,7 +59,6 @@ export function FloatingTabBar({ descriptors, navigation, state }: BottomTabBarP
               target: route.key,
               type: 'tabPress',
             });
-
             if (!isFocused && !event.defaultPrevented) {
               navigation.navigate(route.name);
             }
@@ -87,17 +70,11 @@ export function FloatingTabBar({ descriptors, navigation, state }: BottomTabBarP
               accessibilityLabel={accessibilityLabel}
               accessibilityRole="button"
               accessibilityState={isFocused ? { selected: true } : {}}
-              onLongPress={() =>
-                navigation.emit({
-                  target: route.key,
-                  type: 'tabLongPress',
-                })
-              }
+              onLongPress={() => navigation.emit({ target: route.key, type: 'tabLongPress' })}
               onPress={onPress}
               style={({ pressed }) => ({
                 alignItems: 'center',
-                backgroundColor:
-                  isFocused || pressed ? theme.surfaceAlt : 'transparent',
+                backgroundColor: isFocused || pressed ? theme.surfaceAlt : 'transparent',
                 borderRadius: 24,
                 flex: 1,
                 gap: 4,
@@ -107,24 +84,20 @@ export function FloatingTabBar({ descriptors, navigation, state }: BottomTabBarP
                 paddingVertical: 10,
               })}
             >
-              <Ionicons
-                color={isFocused ? theme.primary : theme.textSoft}
-                name={tab.icon}
-                size={20}
-              />
+              <Icon color={isFocused ? theme.primary : theme.textSoft} size={20} />
               <Text
-                className="text-[11px]"
                 style={{
                   color: isFocused ? theme.text : theme.textSoft,
+                  fontSize: 11,
                   fontWeight: isFocused ? '700' : '500',
                 }}
               >
-                {tab.label}
+                {label}
               </Text>
               <View
-                className="rounded-full"
                 style={{
                   backgroundColor: isFocused ? theme.primary : 'transparent',
+                  borderRadius: 999,
                   height: 4,
                   width: isFocused ? 20 : 4,
                 }}
