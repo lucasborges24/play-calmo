@@ -1,11 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
+import { deleteAccountLocally, signOut, useSession } from '@/features/auth/session';
 import { formatMinutes } from '@/shared/lib/formatters';
 import { useDemoStore } from '@/shared/state/demo-store';
+import { useThemePreference, useResolvedScheme } from '@/shared/hooks/useThemePreference';
 import { useAppTheme } from '@/shared/theme/provider';
-import { PrimaryButton, SecondaryButton } from '@/shared/ui/buttons';
+import { PrimaryButton, SecondaryButton, TertiaryButton } from '@/shared/ui/buttons';
 import {
   AppScrollScreen,
   MetricCard,
@@ -14,9 +16,20 @@ import {
   SectionHeading,
   Tag,
 } from '@/shared/ui/layout';
+import { SegmentedControl } from '@/shared/ui/segmented-control';
+
+const THEME_OPTIONS = [
+  { label: 'Sistema', value: 'system' },
+  { label: 'Claro', value: 'light' },
+  { label: 'Escuro', value: 'dark' },
+] as const;
 
 export default function SettingsScreen() {
+  const router = useRouter();
+  const session = useSession();
   const [confirmDecrease, setConfirmDecrease] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const {
     channels,
     goalMinutes,
@@ -25,9 +38,10 @@ export default function SettingsScreen() {
     noteGoalIncrease,
     setGoalMinutes,
     syncSubscriptions,
-    user,
   } = useDemoStore();
-  const { isDark, setIsDark, theme } = useAppTheme();
+  const { theme } = useAppTheme();
+  const { preference, setPreference } = useThemePreference();
+  const resolvedScheme = useResolvedScheme();
 
   const today = new Date().toISOString().slice(0, 10);
   const canIncrease = lastIncreasedDate !== today && goalMinutes < 240;
@@ -49,84 +63,114 @@ export default function SettingsScreen() {
     setConfirmDecrease(false);
   };
 
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+      router.replace('/sign-in');
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    Alert.alert(
+      'Excluir conta',
+      'Todos os seus dados locais serão apagados permanentemente. Continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel', onPress: () => setConfirmDelete(false) },
+        {
+          text: 'Excluir tudo',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteAccountLocally();
+            router.replace('/sign-in');
+          },
+        },
+      ]
+    );
+  };
+
+  const displayName = session?.name ?? session?.email ?? '—';
+  const displayEmail = session?.email ?? '';
+  const initial = displayName.charAt(0).toUpperCase();
+
   return (
     <AppScrollScreen>
       <ScreenHeader
         eyebrow="Configurações"
-        subtitle="Até a tela utilitária ganhou o mesmo cuidado editorial: informação clara, blocos generosos e menos cara de painel técnico."
-        title="Ajustes suaves, sem painel frio."
-        trailing={
-          <View
-            className="items-center justify-center rounded-[20px] px-4 py-3"
-            style={{ backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }}
-          >
-            <Ionicons color={theme.text} name={isDark ? 'moon' : 'sunny'} size={22} />
-          </View>
-        }
+        subtitle="Conta, aparência e ajustes do seu feed."
+        title="Tudo no seu lugar."
       />
 
-      <Panel style={{ gap: 16 }}>
-        <View className="flex-row items-center gap-4">
-          <View
-            className="items-center justify-center rounded-[24px]"
-            style={{ backgroundColor: theme.primary, height: 68, width: 68 }}
-          >
-            <Text className="text-[24px] font-extrabold text-white">
-              {user.displayName.charAt(0)}
-            </Text>
-          </View>
-          <View className="flex-1 gap-1">
-            <Text className="text-[20px] font-extrabold" style={{ color: theme.text }}>
-              {user.displayName}
-            </Text>
-            <Text className="text-[14px]" style={{ color: theme.textSoft }}>
-              {user.email}
-            </Text>
-          </View>
-          <Tag label="Perfil local" tone="accent" />
-        </View>
-
-        <View className="flex-row gap-3">
-          <MetricCard
-            accent={theme.primary}
-            hint="meta de consumo diário"
-            label="Meta"
-            value={formatMinutes(goalMinutes)}
-          />
-          <MetricCard
-            accent={theme.accent}
-            hint="canais ativos no funil"
-            label="Curadoria"
-            value={`${channels.filter((channel) => channel.active).length}`}
-          />
-        </View>
-      </Panel>
-
       <View className="gap-4">
-        <SectionHeading eyebrow="Preferências" title="Aparência e ritmo" />
+        <SectionHeading eyebrow="Conta" title={displayName} />
 
         <Panel style={{ gap: 16 }}>
-          <View
-            className="flex-row items-center justify-between rounded-[22px] p-4"
-            style={{ backgroundColor: theme.surfaceAlt }}
-          >
-            <View className="flex-1 pr-4">
-              <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
-                Modo escuro
+          <View className="flex-row items-center gap-4">
+            <View
+              className="items-center justify-center rounded-[24px]"
+              style={{ backgroundColor: theme.primary, height: 68, width: 68 }}
+            >
+              <Text className="text-[24px] font-extrabold text-white">{initial}</Text>
+            </View>
+            <View className="flex-1 gap-1">
+              <Text className="text-[20px] font-extrabold" style={{ color: theme.text }}>
+                {displayName}
               </Text>
-              <Text className="mt-2 text-[13px] leading-6" style={{ color: theme.textSoft }}>
-                O toggle é imediato para validar o layout em dois ambientes sem mexer na lógica do produto.
+              <Text className="text-[14px]" style={{ color: theme.textSoft }}>
+                {displayEmail}
               </Text>
             </View>
-            <Switch
-              ios_backgroundColor={theme.border}
-              onValueChange={setIsDark}
-              thumbColor="#FFFFFF"
-              trackColor={{ false: theme.border, true: theme.primary }}
-              value={isDark}
-            />
+            <Tag label="Google" tone="accent" />
           </View>
 
+          <SecondaryButton
+            disabled={signingOut}
+            fullWidth
+            label={signingOut ? 'Saindo…' : 'Sair'}
+            onPress={handleSignOut}
+          />
+
+          {confirmDelete ? (
+            <View className="gap-3">
+              <PrimaryButton label="Confirmar exclusão" onPress={handleDeleteAccount} />
+              <TertiaryButton label="Cancelar" onPress={() => setConfirmDelete(false)} />
+            </View>
+          ) : (
+            <TertiaryButton label="Excluir conta e dados locais" onPress={handleDeleteAccount} />
+          )}
+        </Panel>
+      </View>
+
+      <View className="gap-4">
+        <SectionHeading eyebrow="Preferências" title="Aparência" />
+
+        <Panel style={{ gap: 16 }}>
+          <View className="gap-3 rounded-[22px] p-4" style={{ backgroundColor: theme.surfaceAlt }}>
+            <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
+              Tema
+            </Text>
+            <SegmentedControl
+              onChange={setPreference}
+              options={THEME_OPTIONS}
+              value={preference}
+            />
+            <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
+              {resolvedScheme === 'dark' ? 'Modo escuro ativo.' : 'Modo claro ativo.'}
+            </Text>
+          </View>
+        </Panel>
+      </View>
+
+      <View className="gap-4">
+        <SectionHeading eyebrow="Meta diária" title="Quanto você quer assistir" />
+
+        <Panel style={{ gap: 16 }}>
           <View className="gap-4 rounded-[22px] p-4" style={{ backgroundColor: theme.surfaceAlt }}>
             <View className="flex-row items-center justify-between">
               <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
@@ -155,7 +199,9 @@ export default function SettingsScreen() {
                     width: 48,
                   }}
                 >
-                  <Text className="text-[24px] font-bold" style={{ color: theme.text }}>−</Text>
+                  <Text className="text-[24px] font-bold" style={{ color: theme.text }}>
+                    −
+                  </Text>
                 </Pressable>
 
                 <View
@@ -194,15 +240,30 @@ export default function SettingsScreen() {
 
             <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
               {lastIncreasedDate === today
-                ? 'Aumento diário já usado. O controle foi mantido visualmente claro para reforçar essa regra.'
-                : 'A leitura segue o README do handoff: aumento máximo de 30 minutos por dia.'}
+                ? 'Aumento diário já usado.'
+                : 'Máximo de +30 min por dia.'}
             </Text>
+          </View>
+
+          <View className="flex-row gap-3">
+            <MetricCard
+              accent={theme.primary}
+              hint="meta de consumo diário"
+              label="Meta"
+              value={formatMinutes(goalMinutes)}
+            />
+            <MetricCard
+              accent={theme.accent}
+              hint="canais ativos no funil"
+              label="Curadoria"
+              value={`${channels.filter((channel) => channel.active).length}`}
+            />
           </View>
         </Panel>
       </View>
 
       <View className="gap-4">
-        <SectionHeading eyebrow="Sincronização" title="Operações com menos fricção visual" />
+        <SectionHeading eyebrow="Sincronização" title="Feed e inscrições" />
 
         <Panel style={{ gap: 14 }}>
           <View className="flex-row items-center justify-between gap-4">
@@ -211,7 +272,7 @@ export default function SettingsScreen() {
                 Última sync
               </Text>
               <Text className="text-[14px] leading-6" style={{ color: theme.textSoft }}>
-                {lastSyncLabel}. O botão ganhou destaque suficiente para testes visuais sem poluir a tela.
+                {lastSyncLabel}
               </Text>
             </View>
             <Tag label={lastSyncLabel} tone="accent" />

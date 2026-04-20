@@ -28,7 +28,7 @@ export async function loadThemePreference() {
 
 export function useResolvedScheme(): 'light' | 'dark' {
   const preference = useThemePreference((s) => s.preference);
-  const system = useColorScheme() ?? 'light';
+  const system = useColorScheme() === 'dark' ? 'dark' : 'light';
   if (preference === 'system') return system;
   return preference;
 }
