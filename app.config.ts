@@ -30,7 +30,7 @@ const config: ExpoConfig = {
   web: {
     favicon: './assets/brand/favicon-32.png',
   },
-  plugins: ['expo-router', 'expo-secure-store'],
+  plugins: ['expo-router', 'expo-secure-store', 'expo-sqlite'],
   experiments: {
     typedRoutes: true,
   },

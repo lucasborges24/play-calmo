@@ -10,10 +10,10 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { MigrationsGate } from '@/db/MigrationsGate';
 import { DemoStoreProvider } from '@/shared/state/demo-store';
 import { buildNavigationTheme } from '@/shared/theme/navigation';
 import { AppThemeProvider, useAppTheme } from '@/shared/theme/provider';
@@ -41,17 +41,15 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontsError] = useFonts({
     DMSans_400Regular,
     DMSans_700Bold,
     DMSans_800ExtraBold,
   });
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
+  if (fontsError) {
+    throw fontsError;
+  }
 
   if (!fontsLoaded) {
     return null;
@@ -61,7 +59,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AppThemeProvider>
         <DemoStoreProvider>
-          <RootNavigator />
+          <MigrationsGate>
+            <RootNavigator />
+          </MigrationsGate>
         </DemoStoreProvider>
       </AppThemeProvider>
     </SafeAreaProvider>
