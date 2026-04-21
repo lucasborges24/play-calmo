@@ -1,4 +1,4 @@
-import type { TextProps as RNTextProps } from 'react-native';
+import type { TextProps as RNTextProps, TextStyle } from 'react-native';
 import { Text as RNText } from 'react-native';
 
 import { useAppTheme } from '@/shared/theme/provider';
@@ -9,7 +9,10 @@ type TextProps = RNTextProps & {
   variant?: TextVariant;
 };
 
-const VARIANT_STYLES: Record<TextVariant, { fontSize: number; fontWeight: string; lineHeight: number }> = {
+const VARIANT_STYLES: Record<
+  TextVariant,
+  Pick<TextStyle, 'fontSize' | 'fontWeight' | 'lineHeight'>
+> = {
   h1: { fontSize: 30, fontWeight: '800', lineHeight: 36 },
   h2: { fontSize: 22, fontWeight: '700', lineHeight: 28 },
   h3: { fontSize: 18, fontWeight: '700', lineHeight: 24 },
@@ -20,10 +23,11 @@ const VARIANT_STYLES: Record<TextVariant, { fontSize: number; fontWeight: string
 export function Text({ style, variant = 'body', ...props }: TextProps) {
   const { theme } = useAppTheme();
   const v = VARIANT_STYLES[variant];
+  const baseStyle: TextStyle = { color: theme.text, ...v };
 
   return (
     <RNText
-      style={[{ color: theme.text, ...v }, style]}
+      style={[baseStyle, style]}
       {...props}
     />
   );

@@ -2,11 +2,11 @@ import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 
 import { db, schema } from '../client';
 
-export async function getAllSubscriptions() {
+export function getAllSubscriptions() {
   return db.select().from(schema.subscriptions).orderBy(asc(schema.subscriptions.title));
 }
 
-export async function getActiveSubscriptions() {
+export function getActiveSubscriptions() {
   return db
     .select()
     .from(schema.subscriptions)

@@ -1,24 +1,130 @@
 import { Redirect, Slot } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { eq } from 'drizzle-orm';
+import { useEffect, useRef, useState } from 'react';
+import { Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { db, schema } from '@/db/client';
 import { useSession } from '@/features/auth/session';
+import { syncSubscriptions } from '@/features/subscriptions/sync';
+import { error as logError } from '@/shared/lib/logger';
 import { DemoStoreProvider } from '@/shared/state/demo-store';
+import { useAppTheme } from '@/shared/theme/provider';
 
 export default function AppLayout() {
   const session = useSession();
+  const { theme } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const [ready, setReady] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const initialSyncUserRef = useRef<string | null>(null);
+  const { data: settingsData } = useLiveQuery(
+    db.select().from(schema.settings).where(eq(schema.settings.id, 1)).limit(1),
+  );
+  const settings = settingsData?.[0] ?? null;
 
   useEffect(() => {
     setReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+
+    return () => clearTimeout(timeout);
+  }, [toastMessage]);
+
+  useEffect(() => {
+    if (!session) {
+      initialSyncUserRef.current = null;
+      return;
+    }
+
+    if (!settings || settings.lastSubsSyncAt !== null) {
+      return;
+    }
+
+    if (initialSyncUserRef.current === session.googleUserId) {
+      return;
+    }
+
+    initialSyncUserRef.current = session.googleUserId;
+
+    let cancelled = false;
+
+    syncSubscriptions()
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+
+        const totalChanges = result.added + result.updated + result.unsubscribed;
+        setToastMessage(totalChanges > 0 ? 'Inscrições sincronizadas.' : 'Inscrições em dia.');
+      })
+      .catch((syncError: unknown) => {
+        logError('Initial subscriptions sync failed', syncError);
+
+        if (cancelled) {
+          return;
+        }
+
+        setToastMessage('Falha ao sincronizar inscrições.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session, settings]);
 
   if (!ready) return <View style={{ flex: 1 }} />;
   if (!session) return <Redirect href="/sign-in" />;
 
   return (
     <DemoStoreProvider>
-      <Slot />
+      <View style={{ flex: 1 }}>
+        <Slot />
+
+        {toastMessage ? (
+          <View
+            pointerEvents="none"
+            style={{
+              bottom: insets.bottom + 92,
+              left: 20,
+              position: 'absolute',
+              right: 20,
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                borderRadius: 999,
+                borderWidth: 1,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                shadowColor: theme.shadow,
+                shadowOffset: { width: 0, height: 12 },
+                shadowOpacity: theme.dark ? 0.28 : 1,
+                shadowRadius: 18,
+                elevation: 8,
+              }}
+            >
+              <Text
+                className="text-center text-[13px] font-semibold"
+                style={{ color: theme.text }}
+              >
+                {toastMessage}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
     </DemoStoreProvider>
   );
 }

@@ -1,139 +1,154 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { eq } from 'drizzle-orm';
+import { FlashList } from '@shopify/flash-list';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useDemoStore } from '@/shared/state/demo-store';
+import { db, schema } from '@/db/client';
+import { getAllSubscriptions, toggleSubscriptionActive } from '@/db/queries/subscriptions';
+import { SubscriptionCard } from '@/features/subscriptions/components/SubscriptionCard';
+import { useSyncSubscriptions } from '@/features/subscriptions/hooks';
 import { useAppTheme } from '@/shared/theme/provider';
-import { ChannelCard } from '@/shared/ui/channel-card';
 import { EmptyState } from '@/shared/ui/empty-state';
-import {
-  AppScrollScreen,
-  MetricCard,
-  Panel,
-  ScreenHeader,
-  SectionHeading,
-  Tag,
-} from '@/shared/ui/layout';
+import { Panel } from '@/shared/ui/layout';
+
+function formatLastSync(lastSubsSyncAt: number | null) {
+  if (!lastSubsSyncAt) {
+    return 'nunca';
+  }
+
+  const diffMs = Date.now() - lastSubsSyncAt;
+  const diffMinutes = Math.max(0, Math.floor(diffMs / 60_000));
+
+  if (diffMinutes < 1) {
+    return 'agora';
+  }
+
+  if (diffMinutes < 60) {
+    return `há ${diffMinutes} min`;
+  }
+
+  const diffHours = Math.floor(diffMinutes / 60);
+
+  if (diffHours < 24) {
+    return `há ${diffHours} h`;
+  }
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `há ${diffDays} d`;
+}
 
 export default function SubscriptionsScreen() {
-  const { channels, lastSyncLabel, syncSubscriptions, toggleChannel } = useDemoStore();
   const { theme } = useAppTheme();
-  const [query, setQuery] = useState('');
-
-  const filteredChannels = channels.filter((channel) =>
-    channel.name.toLowerCase().includes(query.trim().toLowerCase())
+  const insets = useSafeAreaInsets();
+  const syncMutation = useSyncSubscriptions();
+  const { data: subscriptionsData } = useLiveQuery(getAllSubscriptions());
+  const { data: settingsData } = useLiveQuery(
+    db.select().from(schema.settings).where(eq(schema.settings.id, 1)).limit(1),
   );
-  const activeChannels = filteredChannels.filter((channel) => channel.active);
-  const waitingChannels = filteredChannels.filter((channel) => !channel.active);
+
+  const subscriptions = subscriptionsData ?? [];
+  const settings = settingsData?.[0] ?? null;
+  const activeCount = subscriptions.filter(
+    (subscription) => subscription.isActive && !subscription.unsubscribedAt,
+  ).length;
+  const totalCount = subscriptions.length;
+  const lastSyncLabel = formatLastSync(settings?.lastSubsSyncAt ?? null);
+
+  const handleRefresh = () => {
+    if (syncMutation.isPending) {
+      return;
+    }
+
+    void syncMutation.mutateAsync();
+  };
+
+  const handleToggle = (channelId: string, isActive: boolean) => {
+    void toggleSubscriptionActive(channelId, isActive);
+  };
 
   return (
-    <AppScrollScreen>
-      <ScreenHeader
-        eyebrow="Inscrições"
-        subtitle="Os canais agora aparecem como peças do sistema visual, com status mais claro e muito menos sensação de tabela crua."
-        title="Deixe só o que merece entrar no dia."
-        trailing={
-          <Pressable
-            className="items-center justify-center rounded-[20px]"
-            onPress={syncSubscriptions}
+    <SafeAreaView edges={['left', 'right']} style={{ backgroundColor: theme.background, flex: 1 }}>
+      <View style={{ backgroundColor: theme.background, flex: 1 }}>
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <View
             style={{
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
-              borderWidth: 1,
-              height: 48,
-              width: 48,
+              backgroundColor: theme.primarySoft,
+              borderRadius: 180,
+              height: 180,
+              position: 'absolute',
+              right: -60,
+              top: -20,
+              width: 180,
             }}
-          >
-            <Ionicons color={theme.text} name="sync-outline" size={22} />
-          </Pressable>
-        }
-      />
-
-      <Panel style={{ gap: 16 }}>
-        <View className="flex-row items-center justify-between gap-4">
-          <View className="flex-1 gap-2">
-            <Text className="text-[18px] font-bold" style={{ color: theme.text }}>
-              Sincronização manual, com peso visual certo
-            </Text>
-            <Text className="text-[14px] leading-6" style={{ color: theme.textSoft }}>
-              O layout usa destaque só onde importa: status, volume de canais e últimos toques na curadoria.
-            </Text>
-          </View>
-          <Tag label={lastSyncLabel} tone="accent" />
-        </View>
-
-        <View className="flex-row gap-3">
-          <MetricCard
-            accent={theme.primary}
-            hint="canais participando da curadoria"
-            label="Ativos"
-            value={`${channels.filter((channel) => channel.active).length}`}
           />
-          <MetricCard
-            accent={theme.accent}
-            hint="canais pausados sem sair da biblioteca"
-            label="Em espera"
-            value={`${channels.filter((channel) => !channel.active).length}`}
+          <View
+            style={{
+              backgroundColor: theme.accentSoft,
+              borderRadius: 160,
+              height: 160,
+              left: -70,
+              position: 'absolute',
+              top: 140,
+              width: 160,
+            }}
           />
         </View>
-      </Panel>
 
-      <Panel style={{ padding: 12 }}>
-        <View
-          className="flex-row items-center gap-3 rounded-[20px] px-4 py-3"
-          style={{ backgroundColor: theme.surfaceAlt }}
-        >
-          <Ionicons color={theme.textMuted} name="search" size={18} />
-          <TextInput
-            onChangeText={setQuery}
-            placeholder="Buscar canal"
-            placeholderTextColor={theme.textMuted}
-            returnKeyType="search"
-            style={{ color: theme.text, flex: 1, fontSize: 15 }}
-            value={query}
-          />
-        </View>
-      </Panel>
+        <FlashList
+          contentContainerStyle={{
+            paddingBottom: insets.bottom + 116,
+            paddingHorizontal: 20,
+            paddingTop: insets.top + 14,
+          }}
+          data={subscriptions}
+          ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
+          keyExtractor={(item) => item.channelId}
+          ListEmptyComponent={
+            <View style={{ paddingTop: 24 }}>
+              <EmptyState
+                ctaLabel="Sincronizar agora"
+                description="Conecte sua conta ao YouTube e puxe suas inscrições para começar a curadoria."
+                icon="sync-outline"
+                onCta={handleRefresh}
+                title="Nenhuma inscrição sincronizada"
+              />
+            </View>
+          }
+          ListHeaderComponent={
+            <View style={{ paddingBottom: 18 }}>
+              <Panel style={{ gap: 12 }}>
+                <View className="flex-row items-start justify-between gap-4">
+                  <View className="flex-1 gap-2">
+                    <Text
+                      className="text-[28px] font-extrabold leading-[34px]"
+                      style={{ color: theme.text }}
+                    >
+                      Inscrições
+                    </Text>
+                    <Text className="text-[15px] leading-6" style={{ color: theme.textSoft }}>
+                      {`${activeCount} ativas de ${totalCount} total`}
+                    </Text>
+                    <Text className="text-[13px] font-medium" style={{ color: theme.textMuted }}>
+                      {`Última sync: ${lastSyncLabel}`}
+                    </Text>
+                  </View>
 
-      {filteredChannels.length === 0 ? (
-        <EmptyState
-          description="Mude a busca ou restaure um canal para preencher esta área novamente."
-          icon="logo-youtube"
-          title="Nenhum canal encontrado"
+                  {syncMutation.isPending ? (
+                    <ActivityIndicator color={theme.primary} size="small" />
+                  ) : null}
+                </View>
+              </Panel>
+            </View>
+          }
+          onRefresh={handleRefresh}
+          refreshing={syncMutation.isPending}
+          renderItem={({ item }) => (
+            <SubscriptionCard onToggle={handleToggle} subscription={item} />
+          )}
+          showsVerticalScrollIndicator={false}
         />
-      ) : (
-        <View className="gap-6">
-          {activeChannels.length > 0 ? (
-            <View className="gap-4">
-              <SectionHeading
-                detail={`${activeChannels.length} ativos`}
-                eyebrow="Na fila"
-                title="Canais priorizados"
-              />
-              <View className="gap-4">
-                {activeChannels.map((channel) => (
-                  <ChannelCard key={channel.id} channel={channel} onToggle={toggleChannel} />
-                ))}
-              </View>
-            </View>
-          ) : null}
-
-          {waitingChannels.length > 0 ? (
-            <View className="gap-4">
-              <SectionHeading
-                detail={`${waitingChannels.length} pausados`}
-                eyebrow="Em espera"
-                title="Ainda bonitos, mas fora da fila"
-              />
-              <View className="gap-4">
-                {waitingChannels.map((channel) => (
-                  <ChannelCard key={channel.id} channel={channel} onToggle={toggleChannel} />
-                ))}
-              </View>
-            </View>
-          ) : null}
-        </View>
-      )}
-    </AppScrollScreen>
+      </View>
+    </SafeAreaView>
   );
 }
