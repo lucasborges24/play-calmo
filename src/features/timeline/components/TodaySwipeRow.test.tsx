@@ -19,14 +19,14 @@ let mockLatestSwipeableProps: SwipeableMockProps | null = null;
 let mockClose = jest.fn();
 
 jest.mock('react-native-gesture-handler', () => {
-  const React = require('react');
-  const { View } = require('react-native');
+  const ReactActual = jest.requireActual<typeof import('react')>('react');
+  const { View } = jest.requireActual<typeof import('react-native')>('react-native');
 
-  const Swipeable = React.forwardRef((props: SwipeableMockProps, ref: ForwardedRef<SwipeableRef>) => {
+  const Swipeable = ReactActual.forwardRef((props: SwipeableMockProps, ref: ForwardedRef<SwipeableRef>) => {
     mockLatestSwipeableProps = props;
     mockClose = jest.fn();
 
-    React.useImperativeHandle(ref, () => ({
+    ReactActual.useImperativeHandle(ref, () => ({
       close: mockClose,
     }));
 
@@ -38,6 +38,7 @@ jest.mock('react-native-gesture-handler', () => {
       </View>
     );
   });
+  Swipeable.displayName = 'MockSwipeable';
 
   return { Swipeable };
 });

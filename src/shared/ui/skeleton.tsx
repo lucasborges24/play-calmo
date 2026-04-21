@@ -21,7 +21,7 @@ type SkeletonTextProps = {
   lineHeight?: number;
   lines?: number;
   style?: StyleProp<ViewStyle>;
-  widths?: Array<number | `${number}%`>;
+  widths?: (number | `${number}%`)[];
 };
 
 type ListLoadingOverlayProps = {

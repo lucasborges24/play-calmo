@@ -1,3 +1,5 @@
+import { addBreadcrumb } from '@sentry/react-native';
+
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const REDACTED_KEYS = new Set([
@@ -61,7 +63,6 @@ function write(level: LogLevel, ...args: unknown[]) {
 
   // In production, forward warn/error to Sentry as breadcrumbs for context trail.
   if (level === 'warn' || level === 'error') {
-    const { addBreadcrumb } = require('@sentry/react-native') as typeof import('@sentry/react-native');
     const sentryLevel = level === 'warn' ? 'warning' : 'error';
     addBreadcrumb({ message: String(sanitizedArgs[0]), level: sentryLevel, data: sanitizedArgs[1] as Record<string, unknown> });
   }

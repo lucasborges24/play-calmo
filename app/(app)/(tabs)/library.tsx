@@ -282,7 +282,7 @@ export default function LibraryScreen() {
     hide();
   };
 
-  const listData: Array<LibraryVideo | LibrarySkeletonItem> = isInitialLoading
+  const listData: (LibraryVideo | LibrarySkeletonItem)[] = isInitialLoading
     ? LIBRARY_SKELETON_ITEMS
     : videos;
   const resultLabel = videos.length === 1 ? 'resultado' : 'resultados';

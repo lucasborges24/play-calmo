@@ -1,3 +1,11 @@
+import { startJobRun } from '@/db/queries/job-runs';
+import { getSettings } from '@/db/queries/settings';
+import { getSubscriptionsForJob } from '@/db/queries/subscriptions';
+import { videoExists } from '@/db/queries/videos';
+import { fetchLatestVideosOfPlaylist, fetchVideoDetails } from '@/features/videos/api';
+
+import { runFetchVideosJob } from './fetch-videos-job';
+
 jest.mock('@/db/client', () => ({
   db: {
     transaction: jest.fn((fn: (tx: unknown) => unknown) => {
@@ -36,17 +44,6 @@ jest.mock('@/features/videos/api', () => ({
   fetchTrendingVideos: jest.fn(),
   fetchVideoDetails: jest.fn(),
 }));
-
-import { getSettings } from '@/db/queries/settings';
-import { startJobRun } from '@/db/queries/job-runs';
-import { getSubscriptionsForJob } from '@/db/queries/subscriptions';
-import { videoExists } from '@/db/queries/videos';
-import {
-  fetchLatestVideosOfPlaylist,
-  fetchVideoDetails,
-} from '@/features/videos/api';
-
-import { runFetchVideosJob } from './fetch-videos-job';
 
 const getSettingsMock = getSettings as jest.Mock;
 const startJobRunMock = startJobRun as jest.Mock;

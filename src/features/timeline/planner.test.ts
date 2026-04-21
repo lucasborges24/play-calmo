@@ -1,7 +1,7 @@
+import { getPlanMarginBounds, pickVideosForPlan } from './planner';
+
 jest.mock('@/db/client', () => ({ db: {}, schema: {} }));
 jest.mock('@/db/queries/settings');
-
-import { getPlanMarginBounds, pickVideosForPlan } from './planner';
 
 function candidate(videoId: string, durationSeconds: number) {
   return { videoId, durationSeconds };

@@ -21,8 +21,7 @@ const mockRefillPlan = jest.fn<Promise<void>, [number]>().mockResolvedValue(unde
 const mockCancel = jest.fn();
 
 jest.mock('@shopify/flash-list', () => {
-  const React = require('react');
-  const { View } = require('react-native');
+  const { View } = jest.requireActual<typeof import('react-native')>('react-native');
 
   return {
     FlashList: (props: Record<string, unknown>) => {
@@ -56,8 +55,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('react-native-safe-area-context', () => {
-  const React = require('react');
-  const { View } = require('react-native');
+  const { View } = jest.requireActual<typeof import('react-native')>('react-native');
 
   return {
     SafeAreaView: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
@@ -148,8 +146,7 @@ jest.mock('@/features/timeline/actions', () => ({
 
 jest.mock('@/features/timeline/components/VideoCard', () => ({
   VideoCard: () => {
-    const React = require('react');
-    const { View } = require('react-native');
+    const { View } = jest.requireActual<typeof import('react-native')>('react-native');
     return <View testID="video-card" />;
   },
 }));
@@ -197,8 +194,7 @@ jest.mock('@/shared/theme/provider', () => ({
 
 jest.mock('@/shared/ui/buttons', () => ({
   PrimaryButton: ({ label, onPress }: { label: string; onPress: () => void }) => {
-    const React = require('react');
-    const { Pressable, Text } = require('react-native');
+    const { Pressable, Text } = jest.requireActual<typeof import('react-native')>('react-native');
     return (
       <Pressable onPress={onPress}>
         <Text>{label}</Text>
@@ -206,8 +202,7 @@ jest.mock('@/shared/ui/buttons', () => ({
     );
   },
   SecondaryButton: ({ label, onPress }: { label: string; onPress: () => void }) => {
-    const React = require('react');
-    const { Pressable, Text } = require('react-native');
+    const { Pressable, Text } = jest.requireActual<typeof import('react-native')>('react-native');
     return (
       <Pressable onPress={onPress}>
         <Text>{label}</Text>
@@ -218,21 +213,18 @@ jest.mock('@/shared/ui/buttons', () => ({
 
 jest.mock('@/shared/ui/empty-state', () => ({
   EmptyState: ({ title }: { title: string }) => {
-    const React = require('react');
-    const { Text } = require('react-native');
+    const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
     return <Text>{title}</Text>;
   },
 }));
 
 jest.mock('@/shared/ui/layout', () => ({
   Panel: ({ children }: { children?: React.ReactNode }) => {
-    const React = require('react');
-    const { View } = require('react-native');
+    const { View } = jest.requireActual<typeof import('react-native')>('react-native');
     return <View>{children}</View>;
   },
   Tag: ({ label }: { label: string }) => {
-    const React = require('react');
-    const { Text } = require('react-native');
+    const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
     return <Text>{label}</Text>;
   },
 }));
