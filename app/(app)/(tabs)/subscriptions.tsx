@@ -4,10 +4,9 @@ import type { FlashListRef } from '@shopify/flash-list';
 import { eq } from 'drizzle-orm';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useDeferredValue, useRef, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button } from '@/shared/components/Button';
 import { db, schema } from '@/db/client';
 import {
   getAllSubscriptionsWithLatestPublishedAt,
@@ -108,6 +107,43 @@ function SubscriptionsControlsSkeleton() {
       <SkeletonBlock borderRadius={24} height={54} width="100%" />
       <SkeletonBlock borderRadius={999} height={12} width={164} />
     </Panel>
+  );
+}
+
+function SubscriptionsSyncButton({
+  loading,
+  onPress,
+}: {
+  loading?: boolean;
+  onPress: () => void;
+}) {
+  const { theme } = useAppTheme();
+
+  return (
+    <Pressable disabled={loading} onPress={onPress}>
+      {({ pressed }) => (
+        <View
+          style={{
+            alignItems: 'center',
+            backgroundColor: loading ? theme.surfaceMuted : pressed ? theme.primary : theme.primaryPressed,
+            borderColor: loading ? theme.border : theme.primaryPressed,
+            borderRadius: 14,
+            borderWidth: 1,
+            flexDirection: 'row',
+            gap: 8,
+            justifyContent: 'center',
+            minHeight: 38,
+            minWidth: 124,
+            opacity: loading ? 0.65 : 1,
+            paddingHorizontal: 14,
+            paddingVertical: 8,
+          }}
+        >
+          {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
+          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Sincronizar</Text>
+        </View>
+      )}
+    </Pressable>
   );
 }
 
@@ -298,14 +334,7 @@ export default function SubscriptionsScreen() {
                   </Text>
                 </View>
 
-                <Button
-                  disabled={syncMutation.isPending}
-                  label="Sincronizar"
-                  loading={syncMutation.isPending}
-                  onPress={handleRefresh}
-                  size="sm"
-                  variant="primary"
-                />
+                <SubscriptionsSyncButton loading={syncMutation.isPending} onPress={handleRefresh} />
               </View>
             </Panel>
           )}

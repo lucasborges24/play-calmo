@@ -161,29 +161,35 @@ function SettingsSolidButton({
     <Pressable
       disabled={loading}
       onPress={onPress}
-      style={({ pressed }) => ({
-        alignItems: 'center',
-        backgroundColor: loading ? theme.surfaceMuted : pressed ? theme.primary : theme.primaryPressed,
-        borderColor: loading ? theme.border : theme.primaryPressed,
-        borderRadius: 16,
-        borderWidth: 1,
-        elevation: loading ? 0 : 2,
-        justifyContent: 'center',
-        minHeight: 52,
-        opacity: loading ? 0.65 : 1,
-        paddingHorizontal: 18,
-        paddingVertical: 12,
-        shadowColor: theme.shadow,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: loading ? 0 : theme.dark ? 0.24 : 0.12,
-        shadowRadius: 18,
-        width: '100%',
-      })}
+      style={{ width: '100%' }}
     >
-      <View style={{ alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
-        {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
-        <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>{label}</Text>
-      </View>
+      {({ pressed }) => (
+        <View
+          style={{
+            alignItems: 'center',
+            backgroundColor: loading ? theme.surfaceMuted : pressed ? theme.primary : theme.primaryPressed,
+            borderColor: loading ? theme.border : theme.primaryPressed,
+            borderRadius: 16,
+            borderWidth: 1,
+            elevation: loading ? 0 : 2,
+            justifyContent: 'center',
+            minHeight: 52,
+            opacity: loading ? 0.65 : 1,
+            paddingHorizontal: 18,
+            paddingVertical: 12,
+            shadowColor: theme.shadow,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: loading ? 0 : theme.dark ? 0.24 : 0.12,
+            shadowRadius: 18,
+            width: '100%',
+          }}
+        >
+          <View style={{ alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
+            {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
+            <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>{label}</Text>
+          </View>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -191,8 +197,6 @@ function SettingsSolidButton({
 export default function SettingsScreen() {
   const router = useRouter();
   const session = useSession();
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [confirmCleanup, setConfirmCleanup] = useState(false);
   const [isCleaningWatched, setIsCleaningWatched] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [trendingRegionInput, setTrendingRegionInput] = useState('BR');
@@ -261,15 +265,11 @@ export default function SettingsScreen() {
   };
 
   const handleDeleteAccount = async () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
     Alert.alert(
       'Excluir conta',
       'Todos os seus dados locais serão apagados permanentemente. Continuar?',
       [
-        { text: 'Cancelar', style: 'cancel', onPress: () => setConfirmDelete(false) },
+        { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Excluir tudo',
           style: 'destructive',
@@ -298,17 +298,11 @@ export default function SettingsScreen() {
       Alert.alert('Falha na limpeza', 'Não foi possível apagar os assistidos antigos. Tente novamente.');
     } finally {
       setIsCleaningWatched(false);
-      setConfirmCleanup(false);
     }
   };
 
   const handleWatchedCleanup = () => {
     if (isCleaningWatched) {
-      return;
-    }
-
-    if (!confirmCleanup) {
-      setConfirmCleanup(true);
       return;
     }
 
@@ -461,15 +455,7 @@ export default function SettingsScreen() {
               label={signingOut ? 'Saindo…' : 'Sair'}
               onPress={handleSignOut}
             />
-
-            {confirmDelete ? (
-              <View className="gap-3">
-                <SettingsSolidButton label="Confirmar exclusão" onPress={handleDeleteAccount} />
-                <SecondaryButton fullWidth label="Cancelar" onPress={() => setConfirmDelete(false)} />
-              </View>
-            ) : (
-              <TertiaryButton label="Excluir conta e dados locais" onPress={handleDeleteAccount} />
-            )}
+            <TertiaryButton label="Excluir conta e dados locais" onPress={handleDeleteAccount} />
           </Panel>
         </View>
 
@@ -926,23 +912,12 @@ export default function SettingsScreen() {
               </Text>
             </View>
 
-            {confirmCleanup ? (
-              <View className="gap-3">
-                <SettingsSolidButton
-                  label={isCleaningWatched ? 'Apagando...' : 'Confirmar limpeza'}
-                  loading={isCleaningWatched}
-                  onPress={handleWatchedCleanup}
-                />
-                <SecondaryButton fullWidth label="Cancelar" onPress={() => setConfirmCleanup(false)} />
-              </View>
-            ) : (
-              <SecondaryButton
-                disabled={isCleaningWatched}
-                fullWidth
-                label="Apagar assistidos há mais de 30 dias"
-                onPress={handleWatchedCleanup}
-              />
-            )}
+            <SecondaryButton
+              disabled={isCleaningWatched}
+              fullWidth
+              label="Apagar assistidos há mais de 30 dias"
+              onPress={handleWatchedCleanup}
+            />
           </Panel>
         </View>
       </AppScrollScreen>
@@ -957,560 +932,3 @@ export default function SettingsScreen() {
 
   return screen;
 }
-
-/*
-
-  if (isInitialLoading) {
-    return <SettingsLoadingScreen />;
-  }
-
-  return (
-    <View style={{ flex: 1 }}>
-      <AppScrollScreen>
-        <ScreenHeader
-          eyebrow="Configurações"
-          subtitle="Conta, aparência e ajustes do seu feed."
-          title="Tudo no seu lugar."
-        />
-
-        <View className="gap-4">
-          <SectionHeading eyebrow="Conta" title={displayName} />
-
-          <Panel style={{ gap: 16 }}>
-            <View className="flex-row items-center gap-4">
-              {avatarUrl ? (
-                <Image
-                  source={{ uri: avatarUrl }}
-                  style={{
-                    backgroundColor: theme.surfaceAlt,
-                    borderRadius: 24,
-                    height: 68,
-                    width: 68,
-                  }}
-                  transition={120}
-                />
-              ) : (
-                <View
-                  className="items-center justify-center rounded-[24px]"
-                  style={{ backgroundColor: theme.primary, height: 68, width: 68 }}
-                >
-                  <Text className="text-[24px] font-extrabold text-white">{initial}</Text>
-                </View>
-              )}
-              <View className="flex-1 gap-1">
-                <Text className="text-[20px] font-extrabold" style={{ color: theme.text }}>
-                  {displayName}
-                </Text>
-                <Text className="text-[14px]" style={{ color: theme.textSoft }}>
-                  {displayEmail}
-                </Text>
-              </View>
-              <Tag label="Google" tone="accent" />
-            </View>
-
-            <SecondaryButton
-              disabled={signingOut}
-              fullWidth
-              label={signingOut ? 'Saindo…' : 'Sair'}
-              onPress={handleSignOut}
-            />
-
-            {confirmDelete ? (
-              <View className="gap-3">
-                <PrimaryButton label="Confirmar exclusão" onPress={handleDeleteAccount} />
-                <TertiaryButton label="Cancelar" onPress={() => setConfirmDelete(false)} />
-              </View>
-            ) : (
-              <TertiaryButton label="Excluir conta e dados locais" onPress={handleDeleteAccount} />
-            )}
-          </Panel>
-        </View>
-
-        <View className="gap-4">
-          <SectionHeading eyebrow="Preferências" title="Aparência" />
-
-          <Panel style={{ gap: 16 }}>
-            <View className="gap-3 rounded-[22px] p-4" style={{ backgroundColor: theme.surfaceAlt }}>
-              <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
-                Tema
-              </Text>
-              <SegmentedControl
-                onChange={setPreference}
-                options={THEME_OPTIONS}
-                value={preference}
-              />
-              <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
-                {resolvedScheme === 'dark' ? 'Modo escuro ativo.' : 'Modo claro ativo.'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View className="gap-4">
-          <SectionHeading eyebrow="Timeline" title="Quanto cabe no seu dia" />
-
-          <Panel style={{ gap: 16 }}>
-            <View className="gap-4 rounded-[22px] p-4" style={{ backgroundColor: theme.surfaceAlt }}>
-              <View className="flex-row items-center justify-between">
-                <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
-                  Meta diaria
-                </Text>
-                <Text className="text-[18px] font-extrabold" style={{ color: theme.primary }}>
-                  {formatMinutes(dailyTargetMins)}
-                </Text>
-              </View>
-
-              <View className="flex-row items-center gap-3">
-                <Pressable
-                  className="items-center justify-center rounded-[18px]"
-                  disabled={!canDecrease}
-                  onPress={() => handleDailyTargetChange(dailyTargetMins - DAILY_TARGET_STEP)}
-                  style={{
-                    backgroundColor: theme.surface,
-                    height: 48,
-                    opacity: canDecrease ? 1 : 0.4,
-                    width: 48,
-                  }}
-                >
-                  <Text className="text-[24px] font-bold" style={{ color: theme.text }}>
-                    -
-                  </Text>
-                </Pressable>
-
-                <View
-                  className="flex-1 overflow-hidden rounded-full"
-                  style={{ backgroundColor: theme.surface, height: 8 }}
-                >
-                  <View
-                    className="h-full rounded-full"
-                    style={{
-                      backgroundColor: theme.primary,
-                      width: `${((dailyTargetMins - DAILY_TARGET_MIN) / (DAILY_TARGET_MAX - DAILY_TARGET_MIN)) * 100}%`,
-                    }}
-                  />
-                </View>
-
-                <Pressable
-                  className="items-center justify-center rounded-[18px]"
-                  disabled={!canIncrease}
-                  onPress={() => handleDailyTargetChange(dailyTargetMins + DAILY_TARGET_STEP)}
-                  style={{
-                    backgroundColor: canIncrease ? theme.primary : theme.surface,
-                    height: 48,
-                    opacity: canIncrease ? 1 : 0.4,
-                    width: 48,
-                  }}
-                >
-                  <Text
-                    className="text-[24px] font-bold"
-                    style={{ color: canIncrease ? '#FFFFFF' : theme.textMuted }}
-                  >
-                    +
-                  </Text>
-                </Pressable>
-              </View>
-              <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
-                A mudanca nao afeta o plano do dia atual. Ela passa a valer a partir de amanha.
-              </Text>
-            </View>
-
-            <View className="flex-row gap-3">
-              <MetricCard
-                accent={theme.primary}
-                hint="meta usada para gerar os proximos dias"
-                label="Meta"
-                value={formatMinutes(dailyTargetMins)}
-              />
-              <MetricCard
-                accent={theme.accent}
-                hint="snapshot salvo para a timeline atual"
-                label="Hoje"
-                value={todayPlan ? formatMinutes(todayPlan.targetMinutes) : 'Sem plano'}
-              />
-            </View>
-          </Panel>
-        </View>
-
-        <View className="gap-4">
-          <SectionHeading eyebrow="Sincronização" title="Feed e inscrições" />
-
-          <Panel style={{ gap: 14 }}>
-            <View className="flex-row items-center justify-between gap-4">
-              <View className="flex-1 gap-2">
-                <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
-                  Última sync
-                </Text>
-                <Text className="text-[14px] leading-6" style={{ color: theme.textSoft }}>
-                  {lastSyncLabel}
-                </Text>
-              </View>
-              <Tag label={lastSyncLabel} tone="accent" />
-            </View>
-            <PrimaryButton
-              label={syncMutation.isPending ? 'Sincronizando...' : 'Sincronizar agora'}
-              loading={syncMutation.isPending}
-              onPress={() => {
-                if (!syncMutation.isPending) {
-                  syncMutation.mutate();
-                }
-              }}
-            />
-          </Panel>
-        </View>
-
-        <View className="gap-4">
-          <SectionHeading eyebrow="Job de busca" title="Coleta de vídeos" />
-
-          <Panel style={{ gap: 16 }}>
-            <View className="gap-4 rounded-[22px] p-4" style={{ backgroundColor: theme.surfaceAlt }}>
-              <View className="flex-row items-center justify-between gap-4">
-                <View className="flex-1 gap-1">
-                  <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
-                    Máximo de canais por execução
-                  </Text>
-                  <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
-                    O job escolhe canais aleatórios até este teto.
-                  </Text>
-                </View>
-                <Text className="text-[20px] font-extrabold" style={{ color: theme.primary }}>
-                  {maxSubsPerJob}
-                </Text>
-              </View>
-
-              <View className="flex-row items-center gap-3">
-                <Pressable
-                  className="items-center justify-center rounded-[18px]"
-                  disabled={!jobSettings || maxSubsPerJob <= MAX_SUBS_MIN}
-                  onPress={() => {
-                    void updateSettings({
-                      maxSubsPerJob: clamp(maxSubsPerJob - MAX_SUBS_STEP, MAX_SUBS_MIN, MAX_SUBS_MAX),
-                    });
-                  }}
-                  style={{
-                    backgroundColor: theme.surface,
-                    height: 44,
-                    opacity: !jobSettings || maxSubsPerJob <= MAX_SUBS_MIN ? 0.4 : 1,
-                    width: 44,
-                  }}
-                >
-                  <Text className="text-[24px] font-bold" style={{ color: theme.text }}>
-                    −
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  className="flex-1 justify-center"
-                  onLayout={(event) => setMaxSubsTrackWidth(event.nativeEvent.layout.width)}
-                  onPress={(event) => {
-                    handleMaxSubsTrackPress(event.nativeEvent.locationX);
-                  }}
-                  style={{ height: 36 }}
-                >
-                  <View
-                    className="rounded-full"
-                    style={{
-                      backgroundColor: theme.surface,
-                      borderColor: theme.border,
-                      borderWidth: 1,
-                      height: 10,
-                    }}
-                  />
-                  <View
-                    className="absolute rounded-full"
-                    style={{
-                      backgroundColor: theme.primary,
-                      height: 10,
-                      width: `${maxSubsRatio * 100}%`,
-                    }}
-                  />
-                  <View
-                    pointerEvents="none"
-                    style={{
-                      backgroundColor: theme.primary,
-                      borderColor: theme.surface,
-                      borderRadius: 999,
-                      borderWidth: 3,
-                      height: 24,
-                      left: maxSubsKnobLeft,
-                      position: 'absolute',
-                      top: 6,
-                      width: 24,
-                    }}
-                  />
-                </Pressable>
-
-                <Pressable
-                  className="items-center justify-center rounded-[18px]"
-                  disabled={!jobSettings || maxSubsPerJob >= MAX_SUBS_MAX}
-                  onPress={() => {
-                    void updateSettings({
-                      maxSubsPerJob: clamp(maxSubsPerJob + MAX_SUBS_STEP, MAX_SUBS_MIN, MAX_SUBS_MAX),
-                    });
-                  }}
-                  style={{
-                    backgroundColor: theme.primary,
-                    height: 44,
-                    opacity: !jobSettings || maxSubsPerJob >= MAX_SUBS_MAX ? 0.4 : 1,
-                    width: 44,
-                  }}
-                >
-                  <Text className="text-[24px] font-bold text-white">+</Text>
-                </Pressable>
-              </View>
-
-              <View className="flex-row items-center justify-between">
-                <Text className="text-[11px] font-semibold" style={{ color: theme.textMuted }}>
-                  {MAX_SUBS_MIN}
-                </Text>
-                <Text className="text-[11px] font-semibold" style={{ color: theme.textMuted }}>
-                  {MAX_SUBS_MAX}
-                </Text>
-              </View>
-            </View>
-
-            <View className="gap-4 rounded-[22px] p-4" style={{ backgroundColor: theme.surfaceAlt }}>
-              <View className="flex-row items-center justify-between gap-4">
-                <View className="flex-1 gap-1">
-                  <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
-                    Vídeos por canal
-                  </Text>
-                  <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
-                    Define quantos vídeos novos cada inscrição pode trazer por run.
-                  </Text>
-                </View>
-                <Text className="text-[20px] font-extrabold" style={{ color: theme.primary }}>
-                  {videosPerSub}
-                </Text>
-              </View>
-
-              <View className="flex-row items-center gap-3">
-                <Pressable
-                  className="items-center justify-center rounded-[18px]"
-                  disabled={!jobSettings || videosPerSub <= VIDEOS_PER_SUB_MIN}
-                  onPress={() => {
-                    void updateSettings({
-                      videosPerSub: clamp(videosPerSub - 1, VIDEOS_PER_SUB_MIN, VIDEOS_PER_SUB_MAX),
-                    });
-                  }}
-                  style={{
-                    backgroundColor: theme.surface,
-                    height: 48,
-                    opacity: !jobSettings || videosPerSub <= VIDEOS_PER_SUB_MIN ? 0.4 : 1,
-                    width: 48,
-                  }}
-                >
-                  <Text className="text-[24px] font-bold" style={{ color: theme.text }}>
-                    −
-                  </Text>
-                </Pressable>
-
-                <View
-                  className="flex-1 rounded-[20px] px-4 py-3"
-                  style={{ backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }}
-                >
-                  <Text className="text-[18px] font-extrabold" style={{ color: theme.text }}>
-                    {videosPerSub} por canal
-                  </Text>
-                  <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
-                    Intervalo disponível: {VIDEOS_PER_SUB_MIN} a {VIDEOS_PER_SUB_MAX}
-                  </Text>
-                </View>
-
-                <Pressable
-                  className="items-center justify-center rounded-[18px]"
-                  disabled={!jobSettings || videosPerSub >= VIDEOS_PER_SUB_MAX}
-                  onPress={() => {
-                    void updateSettings({
-                      videosPerSub: clamp(videosPerSub + 1, VIDEOS_PER_SUB_MIN, VIDEOS_PER_SUB_MAX),
-                    });
-                  }}
-                  style={{
-                    backgroundColor: theme.primary,
-                    height: 48,
-                    opacity: !jobSettings || videosPerSub >= VIDEOS_PER_SUB_MAX ? 0.4 : 1,
-                    width: 48,
-                  }}
-                >
-                  <Text className="text-[24px] font-bold text-white">+</Text>
-                </Pressable>
-              </View>
-            </View>
-
-            <View className="gap-4 rounded-[22px] p-4" style={{ backgroundColor: theme.surfaceAlt }}>
-              <View className="flex-row items-center justify-between gap-4">
-                <View className="flex-1 gap-1">
-                  <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
-                    Incluir trending
-                  </Text>
-                  <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
-                    Adiciona vídeos populares da região escolhida, sem furar a FK de inscrições.
-                  </Text>
-                </View>
-                <Switch
-                  onValueChange={(value) => {
-                    void updateSettings({ includeTrending: value });
-                  }}
-                  trackColor={{ false: theme.surfaceMuted, true: theme.primarySoft }}
-                  value={includeTrending}
-                />
-              </View>
-
-              {includeTrending ? (
-                <View className="gap-2">
-                  <Text className="text-[13px] font-semibold" style={{ color: theme.text }}>
-                    Região do trending
-                  </Text>
-                  <TextInput
-                    autoCapitalize="characters"
-                    autoCorrect={false}
-                    className="rounded-[18px] px-4 py-3 text-[16px] font-semibold"
-                    maxLength={2}
-                    onBlur={handleTrendingRegionBlur}
-                    onChangeText={(value) => {
-                      setTrendingRegionInput(value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2));
-                    }}
-                    placeholder="BR"
-                    placeholderTextColor={theme.textMuted}
-                    style={{
-                      backgroundColor: theme.surface,
-                      borderColor: theme.border,
-                      borderWidth: 1,
-                      color: theme.text,
-                    }}
-                    value={trendingRegionInput}
-                  />
-                  <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
-                    Use um código ISO de país, como BR, US ou JP.
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-
-            <View className="gap-3 rounded-[22px] p-4" style={{ backgroundColor: theme.surfaceAlt }}>
-              <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
-                Última execução
-              </Text>
-              <Text className="text-[18px] font-extrabold" style={{ color: theme.primary }}>
-                {formatRelativeTime(lastJobRunTimestamp)}
-              </Text>
-              <Text className="text-[13px] leading-6" style={{ color: theme.textSoft }}>
-                {lastJobRun
-                  ? `${lastJobRun.subsProcessed ?? 0} canais processados, ${lastJobRun.videosAdded ?? 0} vídeos adicionados`
-                  : 'Nenhum job executado ainda.'}
-              </Text>
-            </View>
-          </Panel>
-        </View>
-
-        <View className="gap-4">
-          <SectionHeading eyebrow="Notificações" title="Lembrete diário" />
-
-          <Panel style={{ gap: 16 }}>
-            <View className="gap-4 rounded-[22px] p-4" style={{ backgroundColor: theme.surfaceAlt }}>
-              <View className="flex-row items-center justify-between gap-4">
-                <View className="flex-1 gap-1">
-                  <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
-                    Notificação diária
-                  </Text>
-                  <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
-                    Receba um lembrete para atualizar sua timeline.
-                  </Text>
-                </View>
-                <Switch
-                  onValueChange={(value) => {
-                    void handleNotificationsToggle(value);
-                  }}
-                  trackColor={{ false: theme.surfaceMuted, true: theme.primarySoft }}
-                  value={notificationsEnabled}
-                />
-              </View>
-
-              {notificationsEnabled ? (
-                <View className="gap-2">
-                  <Text className="text-[13px] font-semibold" style={{ color: theme.text }}>
-                    Horário do lembrete
-                  </Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
-                  >
-                    {Array.from({ length: 24 }, (_, h) => (
-                      <Pressable
-                        key={h}
-                        onPress={() => void handleNotificationHourChange(h)}
-                        style={{
-                          alignItems: 'center',
-                          backgroundColor: notificationHour === h ? theme.primary : theme.surface,
-                          borderColor: theme.border,
-                          borderRadius: 14,
-                          borderWidth: 1,
-                          justifyContent: 'center',
-                          paddingHorizontal: 14,
-                          paddingVertical: 8,
-                        }}
-                      >
-                        <Text
-                          className="text-[14px] font-semibold"
-                          style={{ color: notificationHour === h ? '#FFFFFF' : theme.text }}
-                        >
-                          {String(h).padStart(2, '0')}h
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                  <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
-                    O sistema operacional pode ajustar o horário exato. Use a notificação como gatilho — não como garantia.
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          </Panel>
-        </View>
-
-        <View className="gap-4">
-          <SectionHeading eyebrow="Manutenção" title="Histórico local" />
-
-          <Panel style={{ gap: 14 }}>
-            <View className="gap-2">
-              <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
-                Limpar assistidos antigos
-              </Text>
-              <Text className="text-[13px] leading-6" style={{ color: theme.textSoft }}>
-                Apaga permanentemente vídeos assistidos há mais de 30 dias, exceto os que ainda
-                participam de um plano ativo.
-              </Text>
-            </View>
-
-            {confirmCleanup ? (
-              <View className="gap-3">
-                <PrimaryButton
-                  fullWidth
-                  label={isCleaningWatched ? 'Apagando...' : 'Confirmar limpeza'}
-                  loading={isCleaningWatched}
-                  onPress={handleWatchedCleanup}
-                />
-                <TertiaryButton
-                  label="Cancelar"
-                  onPress={() => {
-                    setConfirmCleanup(false);
-                  }}
-                />
-              </View>
-            ) : (
-              <SecondaryButton
-                disabled={isCleaningWatched}
-                fullWidth
-                label="Apagar assistidos há mais de 30 dias"
-                onPress={handleWatchedCleanup}
-              />
-            )}
-          </Panel>
-        </View>
-      </AppScrollScreen>
-
-      {showLoadingOverlay ? <ListLoadingOverlay label="Atualizando ajustes" top={18} /> : null}
-    </View>
-  );
-}
-*/
