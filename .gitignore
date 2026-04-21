@@ -49,5 +49,5 @@ app-example
 /ios
 /android
 
-# local sqlite migration metadata
-drizzle/migrations/meta
+# drizzle snapshot files (large, only needed for drizzle-kit generate)
+drizzle/migrations/meta/*_snapshot.json
