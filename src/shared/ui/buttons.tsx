@@ -33,8 +33,14 @@ export function PrimaryButton({ label, onPress, disabled, loading, fullWidth }: 
       disabled={disabled || loading}
       style={({ pressed }) => ({
         ...baseStyle(fullWidth),
-        backgroundColor: disabled ? theme.surfaceMuted : pressed ? theme.primaryPressed : theme.primary,
+        backgroundColor: disabled ? theme.surfaceMuted : pressed ? theme.primary : theme.primaryPressed,
+        borderColor: disabled ? theme.border : theme.primaryPressed,
+        borderWidth: 1,
         opacity: disabled ? 0.55 : 1,
+        shadowColor: theme.shadow,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: disabled ? 0 : theme.dark ? 0.24 : 0.12,
+        shadowRadius: 18,
       })}
     >
       {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
@@ -54,13 +60,13 @@ export function SecondaryButton({ label, onPress, disabled, loading, fullWidth }
       disabled={disabled || loading}
       style={({ pressed }) => ({
         ...baseStyle(fullWidth),
-        backgroundColor: pressed ? theme.surfaceMuted : theme.surfaceAlt,
-        borderColor: theme.border,
+        backgroundColor: disabled ? theme.surfaceMuted : pressed ? theme.primarySoft : theme.surface,
+        borderColor: pressed ? theme.primary : theme.borderStrong,
         borderWidth: 1,
         opacity: disabled ? 0.5 : 1,
       })}
     >
-      {loading ? <ActivityIndicator color={theme.textSoft} size="small" /> : null}
+      {loading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
       <Text className="text-[14px] font-semibold" style={{ color: theme.text }}>
         {label}
       </Text>
@@ -75,13 +81,17 @@ export function TertiaryButton({ label, onPress, disabled }: ButtonProps) {
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={{
+      style={({ pressed }) => ({
         alignItems: 'center',
+        backgroundColor: disabled ? theme.surfaceMuted : pressed ? theme.primarySoft : theme.surface,
+        borderColor: theme.primary,
+        borderRadius: 14,
+        borderWidth: 1,
         justifyContent: 'center',
         minHeight: 48,
         opacity: disabled ? 0.45 : 1,
-        paddingHorizontal: 8,
-      }}
+        paddingHorizontal: 16,
+      })}
     >
       <View className="flex-row items-center gap-2">
         <Text className="text-[14px] font-semibold" style={{ color: theme.primary }}>

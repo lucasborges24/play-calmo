@@ -77,8 +77,6 @@ function HomeLoadingHeader() {
 }
 
 function HomeVideoCardSkeleton() {
-  const { theme } = useAppTheme();
-
   return (
     <Panel style={{ padding: 0 }}>
       <SkeletonBlock
@@ -230,12 +228,19 @@ export default function HomeScreen() {
     }
 
     try {
-      await runJobMutation.mutateAsync('manual');
+      const result = await runJobMutation.mutateAsync('manual');
 
       if (plan) {
         await refillPlan(plan.id);
       } else if (hasValidTarget) {
         await getOrCreateTodayPlan();
+      }
+
+      if (result.cancelled) {
+        Alert.alert(
+          'Sincronização cancelada.',
+          'Os vídeos encontrados até o momento foram mantidos.',
+        );
       }
     } catch {
       Alert.alert('Falha ao executar o job.', 'Confira sua conexao e tente novamente.');
@@ -456,7 +461,12 @@ export default function HomeScreen() {
         </View>
       </SafeAreaView>
 
-      <JobProgressModal progress={runJobMutation.progress} visible={runJobMutation.isPending} />
+      <JobProgressModal
+        isCancelling={runJobMutation.isCancelling}
+        onCancel={runJobMutation.cancel}
+        progress={runJobMutation.progress}
+        visible={runJobMutation.isPending}
+      />
     </View>
   );
 }

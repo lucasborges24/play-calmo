@@ -24,11 +24,19 @@ type JobProgress = {
   videosAdded: number;
 };
 
-type JobResult = {
+export type JobResult = {
   subsProcessed: number;
   videosAdded: number;
   errors: string[];
+  cancelled: boolean;
 };
+
+class JobCancelledError extends Error {
+  constructor() {
+    super('Job cancelled');
+    this.name = 'JobCancelledError';
+  }
+}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -54,6 +62,16 @@ function normalizeVideoRows(rows: NewVideo[]) {
 
 function isPlaylistNotFoundError(error: unknown) {
   return error instanceof HTTPError && error.response.status === 404;
+}
+
+function isJobCancelledError(error: unknown): error is JobCancelledError {
+  return error instanceof JobCancelledError;
+}
+
+function throwIfCancelled(shouldCancel?: () => boolean) {
+  if (shouldCancel?.()) {
+    throw new JobCancelledError();
+  }
 }
 
 async function resolveCandidateIdsForSubscription(
@@ -124,6 +142,7 @@ function finishJobRunLocally(
 export async function runFetchVideosJob(
   trigger: JobTrigger,
   onProgress?: (progress: JobProgress) => void,
+  shouldCancel?: () => boolean,
 ): Promise<JobResult> {
   const settings = await getSettings();
   const runId = await startJobRun(trigger);
@@ -136,13 +155,21 @@ export async function runFetchVideosJob(
     const totalSteps = subs.length + (settings.includeTrending ? 1 : 0);
 
     onProgress?.({ current: 0, total: totalSteps, videosAdded: 0 });
+    throwIfCancelled(shouldCancel);
 
     for (const [index, subscription] of subs.entries()) {
+      let stepCompleted = false;
+
+      throwIfCancelled(shouldCancel);
+
       try {
         const candidateIds = await resolveCandidateIdsForSubscription(subscription);
+        throwIfCancelled(shouldCancel);
         const newIds: string[] = [];
 
         for (const videoId of candidateIds) {
+          throwIfCancelled(shouldCancel);
+
           if (newIds.length >= settings.videosPerSub) {
             break;
           }
@@ -152,7 +179,9 @@ export async function runFetchVideosJob(
           }
         }
 
+        throwIfCancelled(shouldCancel);
         const details = newIds.length > 0 ? await fetchVideoDetails(newIds) : [];
+        throwIfCancelled(shouldCancel);
         const addedAt = Date.now();
         const rows = details
           .filter((detail) => detail.durationSeconds >= settings.minDurationSeconds)
@@ -168,6 +197,7 @@ export async function runFetchVideosJob(
             source: 'subscription',
           }));
 
+        throwIfCancelled(shouldCancel);
         db.transaction((tx) => {
           if (rows.length > 0) {
             tx
@@ -186,25 +216,38 @@ export async function runFetchVideosJob(
 
         totalVideosAdded += rows.length;
         subsProcessed += 1;
+        stepCompleted = true;
       } catch (error) {
+        if (isJobCancelledError(error)) {
+          throw error;
+        }
+
         const message = getErrorMessage(error);
         errors.push(`[${subscription.title}] ${message}`);
         logWarn('Subscription fetch job failed', { channelId: subscription.channelId, error: message });
+        stepCompleted = true;
       } finally {
-        onProgress?.({
-          current: index + 1,
-          total: totalSteps,
-          videosAdded: totalVideosAdded,
-        });
+        if (stepCompleted) {
+          onProgress?.({
+            current: index + 1,
+            total: totalSteps,
+            videosAdded: totalVideosAdded,
+          });
+        }
       }
     }
 
     if (settings.includeTrending) {
+      let stepCompleted = false;
+
+      throwIfCancelled(shouldCancel);
+
       try {
         const [trending, knownSubscriptions] = await Promise.all([
           fetchTrendingVideos(settings.trendingRegionCode, 25),
           db.select({ channelId: schema.subscriptions.channelId }).from(schema.subscriptions),
         ]);
+        throwIfCancelled(shouldCancel);
         const knownChannelIds = new Set(
           knownSubscriptions.map((subscription) => subscription.channelId),
         );
@@ -212,6 +255,8 @@ export async function runFetchVideosJob(
         const rows: NewVideo[] = [];
 
         for (const video of trending) {
+          throwIfCancelled(shouldCancel);
+
           if (video.durationSeconds < settings.minDurationSeconds) {
             continue;
           }
@@ -237,6 +282,7 @@ export async function runFetchVideosJob(
           });
         }
 
+        throwIfCancelled(shouldCancel);
         if (rows.length > 0) {
           db.transaction((tx) => {
             tx
@@ -248,16 +294,24 @@ export async function runFetchVideosJob(
         }
 
         totalVideosAdded += rows.length;
+        stepCompleted = true;
       } catch (error) {
+        if (isJobCancelledError(error)) {
+          throw error;
+        }
+
         const message = getErrorMessage(error);
         errors.push(`[trending] ${message}`);
         logWarn('Trending fetch job failed', { error: message });
+        stepCompleted = true;
       } finally {
-        onProgress?.({
-          current: totalSteps,
-          total: totalSteps,
-          videosAdded: totalVideosAdded,
-        });
+        if (stepCompleted) {
+          onProgress?.({
+            current: totalSteps,
+            total: totalSteps,
+            videosAdded: totalVideosAdded,
+          });
+        }
       }
     }
 
@@ -268,8 +322,18 @@ export async function runFetchVideosJob(
       touchLastJobRunAt: true,
     });
 
-    return { subsProcessed, videosAdded: totalVideosAdded, errors };
+    return { subsProcessed, videosAdded: totalVideosAdded, errors, cancelled: false };
   } catch (error) {
+    if (isJobCancelledError(error)) {
+      finishJobRunLocally(runId, {
+        subsProcessed,
+        videosAdded: totalVideosAdded,
+        touchLastJobRunAt: true,
+      });
+
+      return { subsProcessed, videosAdded: totalVideosAdded, errors, cancelled: true };
+    }
+
     finishJobRunLocally(runId, {
       subsProcessed,
       videosAdded: totalVideosAdded,

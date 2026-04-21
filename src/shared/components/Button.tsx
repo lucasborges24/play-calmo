@@ -33,27 +33,35 @@ export function Button({
   const { theme } = useAppTheme();
   const s = SIZES[size];
 
-  const colors: Record<ButtonVariant, { bg: string; bgPressed: string; text: string; border?: string }> = {
+  const colors: Record<
+    ButtonVariant,
+    { bg: string; bgPressed: string; text: string; border?: string; shadow?: boolean }
+  > = {
     primary: {
-      bg: theme.primary,
-      bgPressed: theme.primaryPressed,
+      bg: theme.primaryPressed,
+      bgPressed: theme.primary,
       text: '#FFFFFF',
+      border: theme.primaryPressed,
+      shadow: true,
     },
     secondary: {
-      bg: theme.surfaceAlt,
-      bgPressed: theme.surfaceMuted,
-      border: theme.border,
+      bg: theme.surface,
+      bgPressed: theme.primarySoft,
+      border: theme.borderStrong,
       text: theme.text,
     },
     ghost: {
-      bg: 'transparent',
-      bgPressed: theme.surfaceAlt,
+      bg: theme.surface,
+      bgPressed: theme.primarySoft,
+      border: theme.primary,
       text: theme.primary,
     },
     destructive: {
-      bg: theme.primary,
-      bgPressed: theme.primaryPressed,
+      bg: theme.primaryPressed,
+      bgPressed: theme.primary,
       text: '#FFFFFF',
+      border: theme.primaryPressed,
+      shadow: true,
     },
   };
 
@@ -76,6 +84,10 @@ export function Button({
         opacity: disabled ? 0.5 : 1,
         paddingHorizontal: s.paddingH,
         paddingVertical: s.paddingV,
+        shadowColor: c.shadow && !disabled ? theme.shadow : undefined,
+        shadowOffset: c.shadow ? { width: 0, height: 10 } : undefined,
+        shadowOpacity: c.shadow && !disabled ? (theme.dark ? 0.24 : 0.12) : 0,
+        shadowRadius: c.shadow ? 18 : 0,
         width: fullWidth ? '100%' : undefined,
       })}
     >

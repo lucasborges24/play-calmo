@@ -33,6 +33,10 @@ function findTabByLabel(screen: ReturnType<typeof render>, label: string) {
   );
 }
 
+function findTabLabel(screen: ReturnType<typeof render>, label: string) {
+  return screen.root.findAll((candidate: TestNode) => candidate.props.children === label)[0];
+}
+
 describe('SegmentedControl', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -55,8 +59,9 @@ describe('SegmentedControl', () => {
     expect(inactiveTab).not.toBeNull();
     expect(inactiveTab?.props.accessibilityState).toEqual({ selected: false });
     expect(inactiveTab?.props.style({ pressed: false })).toMatchObject({
-      backgroundColor: theme.surface,
-      borderColor: theme.borderStrong,
+      backgroundColor: 'transparent',
+      minHeight: 52,
+      paddingHorizontal: 12,
     });
   });
 
@@ -73,14 +78,60 @@ describe('SegmentedControl', () => {
       <SegmentedControl onChange={jest.fn()} options={OPTIONS} value="watched" />,
     );
     const activeTab = findTabByLabel(screen, 'Assistidos')[0];
+    const activeLabel = findTabLabel(screen, 'Assistidos');
 
     expect(activeTab).not.toBeNull();
     expect(activeTab?.props.accessibilityState).toEqual({ selected: true });
-    expect(activeTab?.props.style({ pressed: false })).toMatchObject({
-      backgroundColor: theme.primary,
-      borderColor: theme.primary,
-      elevation: 3,
-      shadowColor: theme.primary,
+    expect(activeLabel?.props.style).toMatchObject({
+      color: '#FFFFFF',
+      fontWeight: '700',
+    });
+  });
+
+  it('keeps the selected tab calm in the neutral tone', () => {
+    const theme = buildAppTheme(false);
+
+    mockedUseAppTheme.mockReturnValue({
+      isDark: false,
+      setIsDark: jest.fn(),
+      theme,
+    });
+
+    const screen = render(
+      <SegmentedControl
+        onChange={jest.fn()}
+        options={OPTIONS}
+        tone="neutral"
+        value="excluded"
+      />,
+    );
+    const activeLabel = findTabLabel(screen, 'Excluídos');
+
+    expect(activeLabel?.props.style).toMatchObject({
+      color: theme.text,
+      fontWeight: '700',
+    });
+  });
+
+  it('keeps long labels constrained inside each segment', () => {
+    const theme = buildAppTheme(false);
+
+    mockedUseAppTheme.mockReturnValue({
+      isDark: false,
+      setIsDark: jest.fn(),
+      theme,
+    });
+
+    const screen = render(
+      <SegmentedControl onChange={jest.fn()} options={OPTIONS} value="unwatched" />,
+    );
+    const longLabel = findTabLabel(screen, 'Não assistidos');
+
+    expect(longLabel?.props.numberOfLines).toBe(2);
+    expect(longLabel?.props.style).toMatchObject({
+      lineHeight: 15,
+      maxWidth: '100%',
+      width: '100%',
     });
   });
 });

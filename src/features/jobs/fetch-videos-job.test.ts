@@ -63,6 +63,7 @@ const baseSettings = {
   trendingRegionCode: 'BR',
   dailyTargetHours: 60,
   lastJobRunAt: null,
+  minDurationSeconds: 181,
 };
 
 function makeSub(channelId: string) {
@@ -155,5 +156,31 @@ describe('runFetchVideosJob – live stream filtering', () => {
     const result = await runFetchVideosJob('manual');
 
     expect(result.videosAdded).toBe(0);
+  });
+});
+
+describe('runFetchVideosJob – cancellation', () => {
+  it('stops before processing the next subscription and keeps partial results', async () => {
+    getSubsForJobMock.mockResolvedValue([makeSub('ch1'), makeSub('ch2')]);
+    fetchPlaylistMock.mockResolvedValue(['vid1']);
+    videoExistsMock.mockResolvedValue(false);
+    fetchVideoDetailsMock.mockResolvedValue([makeDetail('vid1')]);
+
+    let cancelled = false;
+
+    const result = await runFetchVideosJob(
+      'manual',
+      (progress) => {
+        if (progress.current === 1) {
+          cancelled = true;
+        }
+      },
+      () => cancelled,
+    );
+
+    expect(result.cancelled).toBe(true);
+    expect(result.subsProcessed).toBe(1);
+    expect(result.videosAdded).toBe(1);
+    expect(fetchPlaylistMock).toHaveBeenCalledTimes(1);
   });
 });

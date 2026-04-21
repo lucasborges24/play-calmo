@@ -10,11 +10,18 @@ type JobProgress = {
 } | null;
 
 type JobProgressModalProps = {
+  isCancelling?: boolean;
+  onCancel: () => void;
   visible: boolean;
   progress: JobProgress;
 };
 
-export function JobProgressModal({ visible, progress }: JobProgressModalProps) {
+export function JobProgressModal({
+  visible,
+  progress,
+  onCancel,
+  isCancelling = false,
+}: JobProgressModalProps) {
   const { theme } = useAppTheme();
   const current = progress?.current ?? 0;
   const total = progress?.total ?? 0;
@@ -39,10 +46,12 @@ export function JobProgressModal({ visible, progress }: JobProgressModalProps) {
             <ActivityIndicator color={theme.primary} size="small" />
             <View className="flex-1 gap-1">
               <Text className="text-[18px] font-extrabold" style={{ color: theme.text }}>
-                Buscando vídeos
+                {isCancelling ? 'Cancelando sincronização' : 'Buscando vídeos'}
               </Text>
               <Text className="text-[13px] leading-5" style={{ color: theme.textSoft }}>
-                {total > 0
+                {isCancelling
+                  ? 'A execução será encerrada assim que a etapa atual terminar.'
+                  : total > 0
                   ? `${current} de ${total} etapas concluídas`
                   : 'Preparando a execução do job.'}
               </Text>
@@ -67,7 +76,12 @@ export function JobProgressModal({ visible, progress }: JobProgressModalProps) {
             </Text>
           </View>
 
-          <SecondaryButton disabled fullWidth label="Cancelar em breve" onPress={() => {}} />
+          <SecondaryButton
+            disabled={isCancelling}
+            fullWidth
+            label={isCancelling ? 'Cancelando...' : 'Cancelar sincronização'}
+            onPress={onCancel}
+          />
         </View>
       </View>
     </Modal>

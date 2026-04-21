@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, isNull, like, or } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm';
 
 import { db, schema } from '@/db/client';
 import type { Video } from '@/db/schema';
@@ -6,53 +6,45 @@ import type { Video } from '@/db/schema';
 export type LibraryFilter = 'unwatched' | 'watched' | 'excluded';
 
 export type LibraryVideo = Video & {
+  channelThumbnailUrl: string | null;
   channelTitle: string;
 };
 
 type LibraryVideoRow = {
+  channelThumbnailUrl: string | null;
   channelTitle: string;
   video: Video;
 };
+
+function normalizeSearchValue(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLocaleLowerCase('pt-BR');
+}
 
 function getLibraryFilterClause(filter: LibraryFilter) {
   switch (filter) {
     case 'unwatched':
       return and(isNull(schema.videos.watchedAt), isNull(schema.videos.excludedAt));
     case 'watched':
-      return isNotNull(schema.videos.watchedAt);
+      return and(isNotNull(schema.videos.watchedAt), isNull(schema.videos.excludedAt));
     case 'excluded':
       return isNotNull(schema.videos.excludedAt);
   }
 }
 
-function getLibrarySearchClause(search?: string) {
-  const trimmed = search?.trim();
-
-  if (!trimmed) {
-    return null;
-  }
-
-  const pattern = `%${trimmed}%`;
-
-  return or(
-    like(schema.videos.title, pattern),
-    like(schema.subscriptions.title, pattern),
-  );
-}
-
-export function getLibraryVideos(filter: LibraryFilter, search?: string) {
-  const filterClause = getLibraryFilterClause(filter);
-  const searchClause = getLibrarySearchClause(search);
-  const whereClause = searchClause ? and(filterClause, searchClause) : filterClause;
-
+export function getLibraryVideos(filter: LibraryFilter) {
   const query = db
     .select({
+      channelThumbnailUrl: schema.subscriptions.thumbnailUrl,
       channelTitle: schema.subscriptions.title,
       video: schema.videos,
     })
     .from(schema.videos)
     .innerJoin(schema.subscriptions, eq(schema.videos.channelId, schema.subscriptions.channelId))
-    .where(whereClause);
+    .where(getLibraryFilterClause(filter));
 
   switch (filter) {
     case 'unwatched':
@@ -67,6 +59,25 @@ export function getLibraryVideos(filter: LibraryFilter, search?: string) {
 export function mapLibraryVideos(rows: LibraryVideoRow[] | undefined): LibraryVideo[] {
   return (rows ?? []).map((row) => ({
     ...row.video,
+    channelThumbnailUrl: row.channelThumbnailUrl,
     channelTitle: row.channelTitle,
   }));
+}
+
+export function filterLibraryVideos(videos: LibraryVideo[], search?: string): LibraryVideo[] {
+  const normalizedSearch = normalizeSearchValue(search ?? '');
+
+  if (!normalizedSearch) {
+    return videos;
+  }
+
+  return videos.filter((video) => {
+    const normalizedTitle = normalizeSearchValue(video.title);
+    const normalizedChannelTitle = normalizeSearchValue(video.channelTitle);
+
+    return (
+      normalizedTitle.includes(normalizedSearch) ||
+      normalizedChannelTitle.includes(normalizedSearch)
+    );
+  });
 }

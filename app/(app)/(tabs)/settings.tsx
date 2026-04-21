@@ -3,7 +3,7 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 
 import { db, schema } from '@/db/client';
 import { updateSettings } from '@/db/queries/settings';
@@ -21,7 +21,7 @@ import { formatMinutes } from '@/shared/lib/formatters';
 import { useThemePreference, useResolvedScheme } from '@/shared/hooks/useThemePreference';
 import { useRetainedLiveQueryData } from '@/shared/hooks/useRetainedLiveQueryData';
 import { useAppTheme } from '@/shared/theme/provider';
-import { PrimaryButton, SecondaryButton, TertiaryButton } from '@/shared/ui/buttons';
+import { SecondaryButton, TertiaryButton } from '@/shared/ui/buttons';
 import {
   AppScrollScreen,
   MetricCard,
@@ -143,6 +143,48 @@ function SettingsLoadingScreen() {
         <SettingsPanelSkeleton />
       </View>
     </AppScrollScreen>
+  );
+}
+
+function SettingsSolidButton({
+  label,
+  onPress,
+  loading,
+}: {
+  label: string;
+  onPress: () => void;
+  loading?: boolean;
+}) {
+  const { theme } = useAppTheme();
+
+  return (
+    <Pressable
+      disabled={loading}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        alignItems: 'center',
+        backgroundColor: loading ? theme.surfaceMuted : pressed ? theme.primary : theme.primaryPressed,
+        borderColor: loading ? theme.border : theme.primaryPressed,
+        borderRadius: 16,
+        borderWidth: 1,
+        elevation: loading ? 0 : 2,
+        justifyContent: 'center',
+        minHeight: 52,
+        opacity: loading ? 0.65 : 1,
+        paddingHorizontal: 18,
+        paddingVertical: 12,
+        shadowColor: theme.shadow,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: loading ? 0 : theme.dark ? 0.24 : 0.12,
+        shadowRadius: 18,
+        width: '100%',
+      })}
+    >
+      <View style={{ alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
+        {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
+        <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>{label}</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -422,8 +464,8 @@ export default function SettingsScreen() {
 
             {confirmDelete ? (
               <View className="gap-3">
-                <PrimaryButton label="Confirmar exclusão" onPress={handleDeleteAccount} />
-                <TertiaryButton label="Cancelar" onPress={() => setConfirmDelete(false)} />
+                <SettingsSolidButton label="Confirmar exclusão" onPress={handleDeleteAccount} />
+                <SecondaryButton fullWidth label="Cancelar" onPress={() => setConfirmDelete(false)} />
               </View>
             ) : (
               <TertiaryButton label="Excluir conta e dados locais" onPress={handleDeleteAccount} />
@@ -549,7 +591,7 @@ export default function SettingsScreen() {
               <Tag label={lastSyncLabel} tone="accent" />
             </View>
 
-            <PrimaryButton
+            <SettingsSolidButton
               label={syncMutation.isPending ? 'Sincronizando...' : 'Sincronizar agora'}
               loading={syncMutation.isPending}
               onPress={() => {
@@ -886,18 +928,12 @@ export default function SettingsScreen() {
 
             {confirmCleanup ? (
               <View className="gap-3">
-                <PrimaryButton
-                  fullWidth
+                <SettingsSolidButton
                   label={isCleaningWatched ? 'Apagando...' : 'Confirmar limpeza'}
                   loading={isCleaningWatched}
                   onPress={handleWatchedCleanup}
                 />
-                <TertiaryButton
-                  label="Cancelar"
-                  onPress={() => {
-                    setConfirmCleanup(false);
-                  }}
-                />
+                <SecondaryButton fullWidth label="Cancelar" onPress={() => setConfirmCleanup(false)} />
               </View>
             ) : (
               <SecondaryButton

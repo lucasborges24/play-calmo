@@ -1,6 +1,5 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import { Text, View } from 'react-native';
 
 import HomeScreen from '../../../app/(app)/(tabs)/index';
 
@@ -9,8 +8,17 @@ type FlashListProps = Record<string, unknown>;
 let mockLatestFlashListProps: FlashListProps | null = null;
 
 const mockPush = jest.fn();
-const mockMutateAsync = jest.fn<Promise<void>, [string]>().mockResolvedValue(undefined);
+const mockMutateAsync = jest.fn<
+  Promise<{ cancelled: boolean; errors: string[]; subsProcessed: number; videosAdded: number }>,
+  [string]
+>().mockResolvedValue({
+  cancelled: false,
+  errors: [],
+  subsProcessed: 0,
+  videosAdded: 0,
+});
 const mockRefillPlan = jest.fn<Promise<void>, [number]>().mockResolvedValue(undefined);
+const mockCancel = jest.fn();
 
 jest.mock('@shopify/flash-list', () => {
   const React = require('react');
@@ -120,6 +128,8 @@ jest.mock('@/db/queries/daily-plan', () => ({
 
 jest.mock('@/features/jobs/hooks', () => ({
   useRunJob: jest.fn(() => ({
+    cancel: mockCancel,
+    isCancelling: false,
     isPending: false,
     mutateAsync: mockMutateAsync,
     progress: null,
@@ -236,6 +246,7 @@ jest.mock('@/shared/ui/skeleton', () => ({
 describe('HomeScreen', () => {
   beforeEach(() => {
     mockLatestFlashListProps = null;
+    mockCancel.mockClear();
     mockMutateAsync.mockClear();
     mockPush.mockClear();
     mockRefillPlan.mockClear();
