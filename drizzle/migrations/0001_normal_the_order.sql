@@ -1,0 +1,1 @@
+ALTER TABLE `settings` ADD `min_duration_seconds` integer DEFAULT 181 NOT NULL;

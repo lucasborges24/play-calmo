@@ -75,6 +75,7 @@ export const settings = sqliteTable('settings', {
     .notNull()
     .default(false),
   notificationHour: integer('notification_hour').notNull().default(7),
+  minDurationSeconds: integer('min_duration_seconds').notNull().default(181),
 });
 
 export const jobRuns = sqliteTable('jobRuns', {

@@ -155,7 +155,7 @@ export async function runFetchVideosJob(
         const details = newIds.length > 0 ? await fetchVideoDetails(newIds) : [];
         const addedAt = Date.now();
         const rows = details
-          .filter((detail) => detail.durationSeconds > 0)
+          .filter((detail) => detail.durationSeconds >= settings.minDurationSeconds)
           .map<NewVideo>((detail) => ({
             videoId: detail.videoId,
             channelId: subscription.channelId,
@@ -212,7 +212,7 @@ export async function runFetchVideosJob(
         const rows: NewVideo[] = [];
 
         for (const video of trending) {
-          if (video.durationSeconds === 0) {
+          if (video.durationSeconds < settings.minDurationSeconds) {
             continue;
           }
 
