@@ -3,13 +3,14 @@ import { Image } from 'expo-image';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   Modal,
   Pressable,
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Swipeable } from 'react-native-gesture-handler';
+import WebView from 'react-native-webview';
 
 import type { VideoWithPosition } from '@/db/queries/daily-plan';
 import { secondsToLabel } from '@/shared/lib/duration';
@@ -91,8 +92,10 @@ export function VideoCard({
 }: VideoCardProps) {
   const swipeableRef = useRef<Swipeable | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [playerVisible, setPlayerVisible] = useState(false);
   const [pendingAction, setPendingAction] = useState<'exclude' | 'remove' | 'watched' | null>(null);
   const { theme } = useAppTheme();
+  const insets = useSafeAreaInsets();
 
   const handleAction = async (
     action: 'exclude' | 'remove' | 'watched',
@@ -113,11 +116,7 @@ export function VideoCard({
     }
   };
 
-  const openVideo = () => {
-    void Linking.openURL(`vnd.youtube://${video.videoId}`).catch(() =>
-      Linking.openURL(`https://youtube.com/watch?v=${video.videoId}`),
-    );
-  };
+  const openVideo = () => setPlayerVisible(true);
 
   return (
     <>
@@ -214,7 +213,7 @@ export function VideoCard({
                 <View className="flex-row items-center gap-2">
                   {video.source === 'trending' ? <Tag label="trending" tone="accent" /> : null}
                   <Text className="text-[12px] font-medium" style={{ color: theme.textMuted }}>
-                    Toque para abrir no YouTube
+                    Toque para assistir
                   </Text>
                 </View>
               </View>
@@ -222,6 +221,48 @@ export function VideoCard({
           </Panel>
         </Pressable>
       </Swipeable>
+
+      <Modal
+        animationType="slide"
+        onRequestClose={() => setPlayerVisible(false)}
+        statusBarTranslucent
+        visible={playerVisible}
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <View
+            style={{
+              paddingTop: insets.top + 8,
+              paddingHorizontal: 16,
+              paddingBottom: 8,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <Pressable
+              onPress={() => setPlayerVisible(false)}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+            >
+              <Ionicons color="#fff" name="chevron-down" size={28} />
+            </Pressable>
+            <Text className="flex-1 text-[14px] font-bold" numberOfLines={1} style={{ color: '#fff' }}>
+              {video.title}
+            </Text>
+          </View>
+
+          {playerVisible ? (
+            <WebView
+              allowsFullscreenVideo
+              allowsInlineMediaPlayback
+              mediaPlaybackRequiresUserAction={false}
+              source={{
+                uri: `https://www.youtube.com/embed/${video.videoId}?autoplay=1&playsinline=1`,
+              }}
+              style={{ flex: 1 }}
+            />
+          ) : null}
+        </View>
+      </Modal>
 
       <Modal
         animationType="fade"
