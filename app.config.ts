@@ -3,13 +3,13 @@ import 'dotenv/config';
 import type { ExpoConfig } from 'expo/config';
 
 const config: ExpoConfig = {
-  name: 'YT Curator',
+  name: 'play calmo',
   slug: 'ytcurator',
   owner: 'lucasborges24',
   version: '0.1.0',
   orientation: 'portrait',
   icon: './assets/brand/icon-1024.png',
-  scheme: 'ytcurator',
+  scheme: 'playcalmo',
   userInterfaceStyle: 'automatic',
   splash: {
     image: './assets/brand/icon-512.png',

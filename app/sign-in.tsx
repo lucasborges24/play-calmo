@@ -1,11 +1,18 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import Constants from 'expo-constants';
 import { ActivityIndicator, Alert, Platform, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useGoogleAuth } from '@/features/auth/google-auth';
+import {
+  getNativeGoogleSignInErrorDetails,
+  isNativeGoogleSignInCancelled,
+  nativeGoogleSignIn,
+} from '@/features/auth/google-native';
 import { persistSession } from '@/features/auth/session';
 import { exchangeCodeForTokens, fetchUserProfile } from '@/features/auth/token-exchange';
+import { error as logError } from '@/shared/lib/logger';
 import { useAppTheme } from '@/shared/theme/provider';
 import { Logo } from '@/shared/ui/logo';
 import { PrimaryButton } from '@/shared/ui/buttons';
@@ -15,11 +22,44 @@ export default function SignInScreen() {
   const { theme } = useAppTheme();
   const [request, , promptAsync] = useGoogleAuth();
   const [loading, setLoading] = useState(false);
+  const isExpoGo = Constants.appOwnership === 'expo';
+  const isAndroidNativeGoogle = Platform.OS === 'android';
 
   const handleSignIn = async () => {
-    if (!request) return;
+    if (isExpoGo) {
+      Alert.alert(
+        'Google Login indisponivel no Expo Go',
+        'Este fluxo OAuth precisa de um development build ou build nativa porque o Expo Go nao suporta redirects OAuth de forma compativel com o Google.'
+      );
+      return;
+    }
+    if (!isAndroidNativeGoogle && !request) return;
+
     setLoading(true);
     try {
+      if (isAndroidNativeGoogle) {
+        const nativeSession = await nativeGoogleSignIn();
+        if (!nativeSession) {
+          setLoading(false);
+          return;
+        }
+
+        await persistSession({
+          profile: nativeSession.profile,
+          accessToken: nativeSession.accessToken,
+          expiresAt: nativeSession.expiresAt,
+        });
+
+        router.replace('/(app)/(tabs)');
+        return;
+      }
+
+      const authRequest = request;
+      if (!authRequest) {
+        setLoading(false);
+        return;
+      }
+
       const result = await promptAsync();
       if (result.type !== 'success') {
         setLoading(false);
@@ -27,8 +67,8 @@ export default function SignInScreen() {
       }
 
       const code = result.params['code']!;
-      const codeVerifier = request.codeVerifier ?? '';
-      const redirectUri = request.redirectUri ?? '';
+      const codeVerifier = authRequest.codeVerifier ?? '';
+      const redirectUri = authRequest.redirectUri ?? '';
       const clientId = Platform.OS === 'android'
         ? process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID!
         : process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID!;
@@ -52,7 +92,35 @@ export default function SignInScreen() {
       });
 
       router.replace('/(app)/(tabs)');
-    } catch {
+    } catch (error) {
+      if (isAndroidNativeGoogle && isNativeGoogleSignInCancelled(error)) {
+        setLoading(false);
+        return;
+      }
+
+      logError('[sign-in] sign-in failed', error);
+
+      if (isAndroidNativeGoogle) {
+        const { code, message } = getNativeGoogleSignInErrorDetails(error);
+
+        if (code === '10' || message.includes('DEVELOPER_ERROR')) {
+          Alert.alert(
+            'Configuração do Google inválida',
+            'O Google retornou DEVELOPER_ERROR/code 10. Revise o client Android no Google Cloud com package com.synmarket.playcalmo e o SHA-1 da build debug.'
+          );
+          setLoading(false);
+          return;
+        }
+
+        const technicalDetail = __DEV__
+          ? `\n\nDetalhe técnico: ${code ? `${code} - ` : ''}${message}`
+          : '';
+
+        Alert.alert('Erro', `Não foi possível entrar. Tente novamente.${technicalDetail}`);
+        setLoading(false);
+        return;
+      }
+
       Alert.alert('Erro', 'Não foi possível entrar. Tente novamente.');
       setLoading(false);
     }
@@ -89,9 +157,9 @@ export default function SignInScreen() {
             </View>
           ) : (
             <PrimaryButton
-              disabled={!request}
+              disabled={(!isAndroidNativeGoogle && !request) || isExpoGo}
               fullWidth
-              label="Continuar com Google"
+              label={isExpoGo ? 'Use um development build para entrar' : 'Continuar com Google'}
               onPress={handleSignIn}
             />
           )}

@@ -1,7 +1,9 @@
 import { eq } from 'drizzle-orm';
 import ky from 'ky';
+import { Platform } from 'react-native';
 
 import { db, schema } from '@/db/client';
+import { refreshNativeGoogleAccessToken } from '@/features/auth/google-native';
 import { getSession } from '@/db/queries/session';
 import { getRefreshToken } from '@/shared/lib/secure-storage';
 import { refreshAccessToken } from '@/features/auth/token-exchange';
@@ -22,6 +24,15 @@ async function ensureFreshAccessToken(): Promise<string> {
 
   if (!refreshPromise) {
     refreshPromise = (async () => {
+      if (Platform.OS === 'android') {
+        const next = await refreshNativeGoogleAccessToken();
+        await db
+          .update(schema.session)
+          .set({ accessToken: next.accessToken, accessTokenExpiresAt: next.expiresAt })
+          .where(eq(schema.session.id, 1));
+        return;
+      }
+
       const refresh = await getRefreshToken();
       if (!refresh) throw new Error('No refresh token');
       const next = await refreshAccessToken(refresh);

@@ -1,8 +1,10 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { Platform } from 'react-native';
 
 import { db, schema } from '@/db/client';
 import { clearSession, getSession, upsertSession } from '@/db/queries/session';
 import { deleteRefreshToken, getRefreshToken, saveRefreshToken } from '@/shared/lib/secure-storage';
+import { nativeGoogleSignOut } from './google-native';
 import { revokeToken } from './token-exchange';
 
 export function useSession() {
@@ -13,10 +15,15 @@ export function useSession() {
 export async function persistSession(params: {
   profile: { sub: string; email: string; name?: string; picture?: string };
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string | null;
   expiresAt: number;
 }) {
-  await saveRefreshToken(params.refreshToken);
+  if (params.refreshToken) {
+    await saveRefreshToken(params.refreshToken);
+  } else {
+    await deleteRefreshToken();
+  }
+
   await upsertSession({
     id: 1,
     googleUserId: params.profile.sub,
@@ -32,6 +39,9 @@ export async function persistSession(params: {
 export async function signOut() {
   const session = await getSession();
   const refresh = await getRefreshToken();
+  if (Platform.OS === 'android') {
+    await nativeGoogleSignOut().catch(() => {});
+  }
   if (refresh) await revokeToken(refresh).catch(() => {});
   if (session?.accessToken) await revokeToken(session.accessToken).catch(() => {});
   await deleteRefreshToken();
