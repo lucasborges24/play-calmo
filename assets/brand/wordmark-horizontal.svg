@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">
+  
+  <text x="8" y="60" class="wm" fill="#111111">play</text>
+  <text x="133" y="60" class="wm" fill="#E53535">.</text>
+  <text x="148" y="60" class="wm" fill="#111111">calmo</text>
+</svg>

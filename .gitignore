@@ -31,7 +31,14 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.local
+.env.*
 .env*.local
+!.env.example
+
+# IDE
+.idea/
 
 # typescript
 *.tsbuildinfo
@@ -41,3 +48,6 @@ app-example
 # generated native folders
 /ios
 /android
+
+# drizzle snapshot files (large, only needed for drizzle-kit generate)
+drizzle/migrations/meta/*_snapshot.json

@@ -1,0 +1,14 @@
+appId: com.synmarket.playcalmo
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Sign in with Google"
+- runFlow:
+    when:
+      visible: "Sign in with Google"
+    commands:
+      - tapOn: "Sign in with Google"
+      # In CI or dev, the Google sign-in sheet appears; skip with back if unavailable.
+      - tapOn:
+          optional: true
+          text: "Cancel"

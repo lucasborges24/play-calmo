@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 120" width="440" height="120">
+  
+  <rect x="8" y="12" width="96" height="96" rx="22" fill="#E53535"></rect>
+  <path d="M44 38 L44 66 L70 52 Z" fill="#FFFFFF"></path>
+  <path d="M22 80 Q 32 72, 42 80 T 62 80 T 82 80 T 90 80" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round"></path>
+  <text x="128" y="78" class="wm" fill="#111111">play</text>
+  <text x="244" y="78" class="wm" fill="#E53535">.</text>
+  <text x="258" y="78" class="wm" fill="#111111">calmo</text>
+</svg>

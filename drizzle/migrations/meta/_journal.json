@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1776711104941,
+      "tag": "0000_yielding_lily_hollister",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1776741051878,
+      "tag": "0001_normal_the_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1776750000000,
+      "tag": "0002_daily_target_minutes",
+      "breakpoints": true
+    }
+  ]
+}
