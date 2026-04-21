@@ -33,14 +33,18 @@ const config: ExpoConfig & { android: { usesCleartextTraffic: boolean } } = {
     favicon: './assets/brand/favicon-32.png',
   },
   plugins: [
-    [
-      '@sentry/react-native/expo',
-      {
-        organization: process.env.SENTRY_ORG,
-        project: process.env.SENTRY_PROJECT,
-        authToken: process.env.SENTRY_AUTH_TOKEN,
-      },
-    ],
+    ...(process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
+      ? [
+          [
+            '@sentry/react-native/expo',
+            {
+              organization: process.env.SENTRY_ORG,
+              project: process.env.SENTRY_PROJECT,
+              authToken: process.env.SENTRY_AUTH_TOKEN,
+            },
+          ] as const,
+        ]
+      : []),
     'expo-router',
     'expo-secure-store',
     'expo-sqlite',
