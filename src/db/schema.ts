@@ -64,7 +64,7 @@ export const dailyPlanVideos = sqliteTable('dailyPlanVideos', {
 
 export const settings = sqliteTable('settings', {
   id: integer('id').primaryKey(),
-  dailyTargetHours: integer('daily_target_hours').notNull().default(2),
+  dailyTargetHours: integer('daily_target_hours').notNull().default(120),
   maxSubsPerJob: integer('max_subs_per_job').notNull().default(25),
   videosPerSub: integer('videos_per_sub').notNull().default(5),
   includeTrending: integer('include_trending', { mode: 'boolean' }).notNull().default(false),
