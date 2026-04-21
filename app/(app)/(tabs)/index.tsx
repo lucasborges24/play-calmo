@@ -31,13 +31,126 @@ import {
   refillPlan,
 } from '@/features/timeline/planner';
 import { formatCalendarLabel, formatMinutes } from '@/shared/lib/formatters';
+import { useRetainedLiveQueryData } from '@/shared/hooks/useRetainedLiveQueryData';
 import { useAppTheme } from '@/shared/theme/provider';
 import { PrimaryButton, SecondaryButton } from '@/shared/ui/buttons';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Panel, Tag } from '@/shared/ui/layout';
+import { ListLoadingOverlay, SkeletonBlock, SkeletonText } from '@/shared/ui/skeleton';
 
 function isValidDailyTarget(minutes: number | null | undefined): minutes is number {
   return typeof minutes === 'number' && Number.isInteger(minutes) && minutes >= 30 && minutes <= 600;
+}
+
+type HomeSkeletonItem = {
+  key: string;
+  kind: 'skeleton';
+};
+
+const HOME_SKELETON_ITEMS: HomeSkeletonItem[] = Array.from({ length: 3 }, (_, index) => ({
+  key: `home-skeleton-${index}`,
+  kind: 'skeleton',
+}));
+
+function HomeLoadingHeader() {
+  return (
+    <View style={{ gap: 18, paddingBottom: 18 }}>
+      <Panel style={{ gap: 18, padding: 20 }}>
+        <View className="flex-row items-start justify-between gap-4">
+          <View className="flex-1 gap-3">
+            <SkeletonBlock borderRadius={999} height={28} width={120} />
+            <SkeletonText lineHeight={14} lines={3} widths={['82%', '74%', '56%']} />
+          </View>
+          <SkeletonBlock borderRadius={20} height={48} width={48} />
+        </View>
+
+        <View className="gap-4">
+          <SkeletonBlock borderRadius={999} height={10} width="100%" />
+          <View className="flex-row items-center justify-between gap-4">
+            <SkeletonBlock borderRadius={999} height={12} width={116} />
+            <SkeletonBlock borderRadius={999} height={12} width={110} />
+          </View>
+        </View>
+      </Panel>
+    </View>
+  );
+}
+
+function HomeVideoCardSkeleton() {
+  const { theme } = useAppTheme();
+
+  return (
+    <Panel style={{ padding: 0 }}>
+      <SkeletonBlock
+        borderRadius={0}
+        height={184}
+        style={{
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
+        }}
+      />
+
+      <View style={{ gap: 8, padding: 14 }}>
+        <View className="flex-row items-center gap-2">
+          <SkeletonBlock borderRadius={999} height={24} width={92} />
+          <SkeletonBlock borderRadius={999} height={24} width={64} />
+        </View>
+
+        <SkeletonText lineHeight={14} lines={3} widths={['100%', '88%', '66%']} />
+        <SkeletonBlock borderRadius={999} height={12} width="42%" />
+      </View>
+    </Panel>
+  );
+}
+
+function HomeLoadingScreen() {
+  const { theme } = useAppTheme();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <SafeAreaView edges={['left', 'right']} style={{ backgroundColor: theme.background, flex: 1 }}>
+      <View style={{ backgroundColor: theme.background, flex: 1 }}>
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <View
+            style={{
+              backgroundColor: theme.primarySoft,
+              borderRadius: 180,
+              height: 180,
+              position: 'absolute',
+              right: -60,
+              top: -20,
+              width: 180,
+            }}
+          />
+          <View
+            style={{
+              backgroundColor: theme.accentSoft,
+              borderRadius: 160,
+              height: 160,
+              left: -70,
+              position: 'absolute',
+              top: 140,
+              width: 160,
+            }}
+          />
+        </View>
+
+        <FlashList
+          contentContainerStyle={{
+            paddingBottom: insets.bottom + 116,
+            paddingHorizontal: 20,
+            paddingTop: insets.top + 14,
+          }}
+          data={HOME_SKELETON_ITEMS}
+          ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
+          keyExtractor={(item) => item.key}
+          ListHeaderComponent={<HomeLoadingHeader />}
+          renderItem={() => <HomeVideoCardSkeleton />}
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+    </SafeAreaView>
+  );
 }
 
 export default function HomeScreen() {
@@ -51,8 +164,13 @@ export default function HomeScreen() {
   const { data: settingsData } = useLiveQuery(
     db.select().from(schema.settings).where(eq(schema.settings.id, 1)).limit(1),
   );
-  const { data: todayPlanData, isLoading: isTodayPlanLoading } = useTodayPlan(todayDate);
-  const settings = settingsData?.[0] ?? null;
+  const retainedSettings = useRetainedLiveQueryData(settingsData);
+  const {
+    data: todayPlanData,
+    isInitialLoading: isTodayPlanInitialLoading,
+    isRefreshing: isTodayPlanRefreshing,
+  } = useTodayPlan(todayDate);
+  const settings = retainedSettings.data?.[0] ?? null;
   const plan = todayPlanData?.plan ?? null;
   const videos = todayPlanData?.videos ?? [];
   const hasValidTarget = isValidDailyTarget(settings?.dailyTargetHours);
@@ -68,7 +186,7 @@ export default function HomeScreen() {
   const isEnsuringPlan = !plan && ensureAttemptRef.current === todayDate;
 
   useEffect(() => {
-    if (!hasValidTarget || isTodayPlanLoading || plan || ensureAttemptRef.current === todayDate) {
+    if (!hasValidTarget || isTodayPlanInitialLoading || plan || ensureAttemptRef.current === todayDate) {
       return;
     }
 
@@ -78,7 +196,7 @@ export default function HomeScreen() {
       Alert.alert('Nao foi possivel montar a timeline de hoje.', 'Tente novamente em instantes.');
       ensureAttemptRef.current = null;
     });
-  }, [hasValidTarget, isTodayPlanLoading, plan, todayDate]);
+  }, [hasValidTarget, isTodayPlanInitialLoading, plan, todayDate]);
 
   useEffect(() => {
     if (!plan || !hasValidTarget || runJobMutation.isPending || totalSeconds >= bounds.lower) {
@@ -148,20 +266,20 @@ export default function HomeScreen() {
     }
   };
 
-  if (settingsData === undefined || (isTodayPlanLoading && !plan) || isEnsuringPlan) {
-    return (
-      <SafeAreaView edges={['left', 'right']} style={{ backgroundColor: theme.background, flex: 1 }}>
-        <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.background }}>
-          <ActivityIndicator color={theme.primary} size="large" />
-        </View>
-      </SafeAreaView>
-    );
+  const isInitialLoading =
+    retainedSettings.isInitialLoading ||
+    (hasValidTarget && ((!todayPlanData && isTodayPlanInitialLoading) || (isEnsuringPlan && !todayPlanData)));
+  const showLoadingOverlay =
+    !isInitialLoading && (retainedSettings.isRefreshing || isTodayPlanRefreshing);
+
+  if (isInitialLoading) {
+    return <HomeLoadingScreen />;
   }
 
   return (
     <View style={{ flex: 1 }}>
       <SafeAreaView edges={['left', 'right']} style={{ backgroundColor: theme.background, flex: 1 }}>
-        <View style={{ backgroundColor: theme.background, flex: 1 }}>
+        <View style={{ backgroundColor: theme.background, flex: 1, position: 'relative' }}>
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
             <View
               style={{
@@ -240,6 +358,7 @@ export default function HomeScreen() {
                       onPress={() => {
                         void handleRunJob();
                       }}
+                      testID="today-sync-button"
                       style={{
                         backgroundColor: theme.surfaceAlt,
                         borderColor: theme.border,
@@ -322,10 +441,6 @@ export default function HomeScreen() {
                 ) : null}
               </View>
             }
-            onRefresh={() => {
-              void handleRunJob();
-            }}
-            refreshing={runJobMutation.isPending}
             renderItem={({ item }) => (
               <VideoCard
                 onExclude={handleExclude}
@@ -336,6 +451,8 @@ export default function HomeScreen() {
             )}
             showsVerticalScrollIndicator={false}
           />
+
+          {showLoadingOverlay ? <ListLoadingOverlay label="Atualizando timeline" /> : null}
         </View>
       </SafeAreaView>
 

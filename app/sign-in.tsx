@@ -15,11 +15,9 @@ import {
 import { persistSession } from '@/features/auth/session';
 import { exchangeCodeForTokens, fetchUserProfile } from '@/features/auth/token-exchange';
 import { error as logError } from '@/shared/lib/logger';
+import type { AppTheme } from '@/shared/theme/colors';
+import { useAppTheme } from '@/shared/theme/provider';
 import { Logo } from '@/shared/ui/logo';
-
-const BG = '#0D0D0D';
-const TEXT = '#F0F0EE';
-const TEXT_SOFT = '#9C9C9A';
 
 function GoogleIcon({ size = 20 }: { size?: number }) {
   return (
@@ -44,7 +42,48 @@ function GoogleIcon({ size = 20 }: { size?: number }) {
   );
 }
 
-function LogoWithGlow() {
+function AmbientBackdrop({ isDark }: { isDark: boolean }) {
+  return (
+    <View
+      pointerEvents="none"
+      style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'hidden' }}
+    >
+      <Svg
+        width={320}
+        height={320}
+        style={{ position: 'absolute', top: -120, left: -70 }}
+        viewBox="0 0 320 320"
+      >
+        <Defs>
+          <RadialGradient id="heroGlowTop" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%" stopColor="#E53535" stopOpacity={isDark ? 0.36 : 0.22} />
+            <Stop offset="55%" stopColor="#E53535" stopOpacity={isDark ? 0.12 : 0.08} />
+            <Stop offset="100%" stopColor="#E53535" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Ellipse cx="160" cy="160" rx="160" ry="160" fill="url(#heroGlowTop)" />
+      </Svg>
+
+      <Svg
+        width={260}
+        height={260}
+        style={{ position: 'absolute', bottom: -120, right: -80 }}
+        viewBox="0 0 260 260"
+      >
+        <Defs>
+          <RadialGradient id="heroGlowBottom" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%" stopColor="#E53535" stopOpacity={isDark ? 0.18 : 0.12} />
+            <Stop offset="62%" stopColor="#E53535" stopOpacity={isDark ? 0.08 : 0.05} />
+            <Stop offset="100%" stopColor="#E53535" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Ellipse cx="130" cy="130" rx="130" ry="130" fill="url(#heroGlowBottom)" />
+      </Svg>
+    </View>
+  );
+}
+
+function LogoWithGlow({ isDark }: { isDark: boolean }) {
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center' }}>
       <Svg
@@ -55,8 +94,8 @@ function LogoWithGlow() {
       >
         <Defs>
           <RadialGradient id="logoGlow" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor="#E53535" stopOpacity="0.35" />
-            <Stop offset="60%" stopColor="#E53535" stopOpacity="0.08" />
+            <Stop offset="0%" stopColor="#E53535" stopOpacity={isDark ? 0.35 : 0.26} />
+            <Stop offset="60%" stopColor="#E53535" stopOpacity={isDark ? 0.08 : 0.06} />
             <Stop offset="100%" stopColor="#E53535" stopOpacity="0" />
           </RadialGradient>
         </Defs>
@@ -67,8 +106,75 @@ function LogoWithGlow() {
   );
 }
 
+function GoogleButton({
+  disabled,
+  isDark,
+  label,
+  loading,
+  onPress,
+  theme,
+}: {
+  disabled: boolean;
+  isDark: boolean;
+  label: string;
+  loading: boolean;
+  onPress: () => void;
+  theme: AppTheme;
+}) {
+  return (
+    <Pressable
+      disabled={disabled || loading}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        alignItems: 'center',
+        alignSelf: 'stretch',
+        backgroundColor: disabled ? theme.surfaceMuted : pressed ? '#F3F1EB' : '#FCFBF8',
+        borderColor: disabled ? theme.border : isDark ? 'rgba(255,255,255,0.16)' : 'rgba(17,17,17,0.12)',
+        borderRadius: 16,
+        borderWidth: 1.5,
+        elevation: disabled ? 0 : 6,
+        justifyContent: 'center',
+        minHeight: 58,
+        paddingHorizontal: 22,
+        paddingVertical: 16,
+        shadowColor: isDark ? '#000000' : '#111111',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: disabled ? 0 : isDark ? 0.3 : 0.12,
+        shadowRadius: 16,
+      })}
+    >
+      <View
+        style={{
+          alignItems: 'center',
+          flexDirection: 'row',
+          gap: 12,
+          justifyContent: 'center',
+          maxWidth: '100%',
+        }}
+      >
+        <View style={{ alignItems: 'center', justifyContent: 'center', width: 22 }}>
+          {loading ? <ActivityIndicator color="#111111" /> : <GoogleIcon size={22} />}
+        </View>
+
+        <Text
+          style={{
+            color: disabled ? theme.textSoft : '#111111',
+            fontSize: 15,
+            fontWeight: '700',
+            lineHeight: 20,
+          }}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
 export default function SignInScreen() {
   const router = useRouter();
+  const { theme, isDark } = useAppTheme();
   const [request, , promptAsync] = useGoogleAuth();
   const [loading, setLoading] = useState(false);
   const isExpoGo = Constants.appOwnership === 'expo';
@@ -174,61 +280,87 @@ export default function SignInScreen() {
     }
   };
 
-  const isDisabled = (!isAndroidNativeGoogle && !request) || isExpoGo;
-  const buttonLabel = isExpoGo ? 'Use um development build para entrar' : 'Continuar com Google';
+  const isDisabled = !isAndroidNativeGoogle && !request && !isExpoGo;
+  const helperText = isExpoGo
+    ? 'No Expo Go, o login exige um development build para concluir o fluxo do Google.'
+    : 'Entre com sua conta Google para montar um feed mais calmo e intencional.';
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG }}>
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <AmbientBackdrop isDark={isDark} />
       <SafeAreaView style={{ flex: 1 }}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 }}>
-          <LogoWithGlow />
-
-          <View style={{ alignItems: 'center', gap: 10, marginTop: 28, marginBottom: 52 }}>
-            <Text style={{ color: TEXT, fontSize: 30, fontWeight: '800', textAlign: 'center' }}>
-              Play Calmo
-            </Text>
-            <Text style={{ color: TEXT_SOFT, fontSize: 15, lineHeight: 23, textAlign: 'center' }}>
-              Seu feed do YouTube, curado com{'\n'}calma e intenção
-            </Text>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: 'space-between',
+            paddingHorizontal: 24,
+            paddingTop: 16,
+            paddingBottom: 24,
+          }}
+        >
+          <View style={{ alignItems: 'flex-end' }}>
+            <Pressable style={{ padding: 8 }} onPress={() => {}}>
+              <Ionicons name="settings-outline" size={22} color={theme.textSoft} />
+            </Pressable>
           </View>
 
-          <View style={{ alignSelf: 'stretch' }}>
-            {loading ? (
-              <View style={{ alignItems: 'center', height: 54, justifyContent: 'center' }}>
-                <ActivityIndicator color="#E53535" />
-              </View>
-            ) : (
-              <Pressable
-                disabled={isDisabled}
-                onPress={handleSignIn}
-                style={({ pressed }) => ({
-                  alignItems: 'center',
-                  backgroundColor: pressed ? '#F0F0EE' : '#FFFFFF',
-                  borderRadius: 14,
-                  flexDirection: 'row',
-                  gap: 10,
-                  justifyContent: 'center',
-                  minHeight: 54,
-                  opacity: isDisabled ? 0.5 : 1,
-                  paddingHorizontal: 20,
-                  paddingVertical: 14,
-                })}
-              >
-                <GoogleIcon size={22} />
-                <Text style={{ color: '#111111', fontSize: 15, fontWeight: '600' }}>
-                  {buttonLabel}
+          <View style={{ alignItems: 'center', flex: 1, justifyContent: 'center' }}>
+            <View
+              style={{
+                alignItems: 'center',
+                backgroundColor: isDark ? 'rgba(23, 23, 23, 0.78)' : 'rgba(255, 255, 255, 0.88)',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(17,17,17,0.06)',
+                borderRadius: 32,
+                borderWidth: 1,
+                maxWidth: 420,
+                paddingHorizontal: 24,
+                paddingTop: 26,
+                paddingBottom: 22,
+                width: '100%',
+              }}
+            >
+              <LogoWithGlow isDark={isDark} />
+
+              <View style={{ alignItems: 'center', gap: 10, marginTop: 12, marginBottom: 34 }}>
+                <Text style={{ color: theme.text, fontSize: 31, fontWeight: '800', textAlign: 'center' }}>
+                  Play Calmo
                 </Text>
-              </Pressable>
-            )}
+                <Text
+                  style={{
+                    color: theme.textSoft,
+                    fontSize: 15,
+                    lineHeight: 23,
+                    maxWidth: 280,
+                    textAlign: 'center',
+                  }}
+                >
+                  Seu feed do YouTube, curado com{'\n'}calma e intenção.
+                </Text>
+              </View>
+
+              <GoogleButton
+                disabled={isDisabled}
+                isDark={isDark}
+                label="Continuar com Google"
+                loading={loading}
+                onPress={handleSignIn}
+                theme={theme}
+              />
+
+              <Text
+                style={{
+                  color: isExpoGo ? theme.primary : theme.textSoft,
+                  fontSize: 13,
+                  lineHeight: 20,
+                  marginTop: 14,
+                  textAlign: 'center',
+                }}
+              >
+                {helperText}
+              </Text>
+            </View>
           </View>
         </View>
-
-        <Pressable
-          style={{ position: 'absolute', top: 12, right: 20, padding: 8 }}
-          onPress={() => {}}
-        >
-          <Ionicons name="settings-outline" size={22} color={TEXT_SOFT} />
-        </Pressable>
       </SafeAreaView>
     </View>
   );

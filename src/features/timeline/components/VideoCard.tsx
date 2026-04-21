@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -9,13 +9,33 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Swipeable } from 'react-native-gesture-handler';
 import WebView from 'react-native-webview';
 
 import type { VideoWithPosition } from '@/db/queries/daily-plan';
+import { TodaySwipeRow } from '@/features/timeline/components/TodaySwipeRow';
+import {
+  getAvailableTodaySwipeActions,
+  getTodaySwipeActionWidth,
+  type TodaySwipeAction,
+} from '@/features/timeline/today-swipe';
 import { secondsToLabel } from '@/shared/lib/duration';
 import { useAppTheme } from '@/shared/theme/provider';
 import { Panel, Tag } from '@/shared/ui/layout';
+
+const ACTION_WIDTH = getTodaySwipeActionWidth();
+const YOUTUBE_EMBED_ORIGIN = 'https://synmarket.com.br';
+const YOUTUBE_EMBED_REFERRER = `${YOUTUBE_EMBED_ORIGIN}/`;
+
+function getYoutubeEmbedUri(videoId: string): string {
+  const params = new URLSearchParams({
+    autoplay: '1',
+    origin: YOUTUBE_EMBED_ORIGIN,
+    playsinline: '1',
+    widget_referrer: YOUTUBE_EMBED_REFERRER,
+  });
+
+  return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
+}
 
 type VideoCardProps = {
   onExclude: (videoId: string) => Promise<void>;
@@ -23,39 +43,6 @@ type VideoCardProps = {
   onRemoveFromToday: (videoId: string) => Promise<void>;
   video: VideoWithPosition;
 };
-
-type SwipeActionProps = {
-  backgroundColor: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  label: string;
-  onPress: () => void;
-  textColor: string;
-};
-
-function SwipeAction({
-  backgroundColor,
-  icon,
-  label,
-  onPress,
-  textColor,
-}: SwipeActionProps) {
-  return (
-    <Pressable
-      className="items-center justify-center gap-2 rounded-[28px] px-5"
-      onPress={onPress}
-      style={{
-        alignSelf: 'stretch',
-        backgroundColor,
-        minWidth: 112,
-      }}
-    >
-      <Ionicons color={textColor} name={icon} size={20} />
-      <Text className="text-center text-[12px] font-bold" style={{ color: textColor }}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
 
 type SheetButtonProps = {
   destructive?: boolean;
@@ -84,21 +71,54 @@ function SheetButton({ destructive = false, label, onPress }: SheetButtonProps) 
   );
 }
 
+type SwipeActionProps = {
+  backgroundColor: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  onPress: () => void;
+  textColor: string;
+};
+
+function SwipeAction({
+  backgroundColor,
+  icon,
+  label,
+  onPress,
+  textColor,
+}: SwipeActionProps) {
+  return (
+    <Pressable
+      className="items-center justify-center gap-2 rounded-[28px] px-5"
+      onPress={onPress}
+      style={{
+        alignSelf: 'stretch',
+        backgroundColor,
+        height: '100%',
+        minWidth: ACTION_WIDTH,
+      }}
+    >
+      <Ionicons color={textColor} name={icon} size={20} />
+      <Text className="text-center text-[12px] font-bold" style={{ color: textColor }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 export function VideoCard({
   onExclude,
   onMarkWatched,
   onRemoveFromToday,
   video,
 }: VideoCardProps) {
-  const swipeableRef = useRef<Swipeable | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [playerVisible, setPlayerVisible] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'exclude' | 'remove' | 'watched' | null>(null);
+  const [pendingAction, setPendingAction] = useState<TodaySwipeAction | 'exclude' | null>(null);
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
 
   const handleAction = async (
-    action: 'exclude' | 'remove' | 'watched',
+    action: TodaySwipeAction | 'exclude',
     callback: () => Promise<void>,
   ) => {
     if (pendingAction) {
@@ -110,7 +130,6 @@ export function VideoCard({
     try {
       await callback();
       setSheetVisible(false);
-      swipeableRef.current?.close();
     } finally {
       setPendingAction(null);
     }
@@ -118,109 +137,160 @@ export function VideoCard({
 
   const openVideo = () => setPlayerVisible(true);
 
+  const isWatched = Boolean(video.watchedAt);
+  const availableSwipeActions = getAvailableTodaySwipeActions(isWatched);
+
   return (
     <>
-      <Swipeable
-        ref={swipeableRef}
-        friction={2}
-        overshootLeft={false}
-        overshootRight={false}
-        renderLeftActions={() => (
-          <View className="pr-3">
-            <SwipeAction
-              backgroundColor={theme.success}
-              icon="checkmark"
-              label="Marcar visto"
-              onPress={() => {
-                void handleAction('watched', () => onMarkWatched(video.videoId));
-              }}
-              textColor="#FFFFFF"
-            />
-          </View>
-        )}
-        renderRightActions={() => (
-          <View className="pl-3">
-            <SwipeAction
-              backgroundColor={theme.accent}
-              icon="close"
-              label="Remover do dia"
-              onPress={() => {
-                void handleAction('remove', () => onRemoveFromToday(video.videoId));
-              }}
-              textColor={theme.text}
-            />
-          </View>
-        )}
+      <TodaySwipeRow
+        availableActions={availableSwipeActions}
+        disabled={pendingAction !== null}
+        onAction={(action) =>
+          handleAction(
+            action,
+            action === 'mark-watched'
+              ? () => onMarkWatched(video.videoId)
+              : () => onRemoveFromToday(video.videoId),
+          )
+        }
+        renderAction={(action, onPress) =>
+          action === 'mark-watched' ? (
+            <View className="pr-3" style={{ height: '100%' }}>
+              <SwipeAction
+                backgroundColor={theme.success}
+                icon="checkmark"
+                label="Marcar visto"
+                onPress={onPress}
+                textColor="#FFFFFF"
+              />
+            </View>
+          ) : (
+            <View className="pl-3" style={{ height: '100%' }}>
+              <SwipeAction
+                backgroundColor={theme.accent}
+                icon="close"
+                label="Remover do dia"
+                onPress={onPress}
+                textColor={theme.text}
+              />
+            </View>
+          )
+        }
       >
         <Pressable
           disabled={pendingAction !== null}
           onLongPress={() => setSheetVisible(true)}
           onPress={openVideo}
+          style={isWatched ? { opacity: 0.72 } : undefined}
         >
-          <Panel style={{ padding: 12 }}>
-            <View className="flex-row gap-4">
+          <Panel style={{ padding: 0 }}>
+            <View
+              style={{
+                aspectRatio: 16 / 9,
+                borderTopLeftRadius: 28,
+                borderTopRightRadius: 28,
+                overflow: 'hidden',
+              }}
+            >
               {video.thumbnailUrl ? (
                 <Image
                   contentFit="cover"
                   source={{ uri: video.thumbnailUrl }}
-                  style={{
-                    backgroundColor: theme.surfaceAlt,
-                    borderRadius: 20,
-                    height: 68,
-                    width: 120,
-                  }}
+                  style={{ width: '100%', height: '100%' }}
                   transition={120}
                 />
               ) : (
                 <View
-                  className="items-center justify-center rounded-[20px]"
-                  style={{
-                    backgroundColor: theme.surfaceAlt,
-                    height: 68,
-                    width: 120,
-                  }}
+                  className="items-center justify-center"
+                  style={{ backgroundColor: theme.surfaceAlt, flex: 1 }}
                 >
-                  <Ionicons color={theme.textMuted} name="play-circle-outline" size={24} />
+                  <Ionicons color={theme.textMuted} name="play-circle-outline" size={40} />
                 </View>
               )}
 
-              <View className="flex-1 gap-2">
-                <View className="flex-row items-start justify-between gap-3">
-                  <View className="flex-1 gap-2">
-                    <Text
-                      className="text-[16px] font-bold leading-6"
-                      numberOfLines={2}
-                      style={{ color: theme.text }}
-                    >
-                      {video.title}
-                    </Text>
-                    <Text className="text-[13px]" numberOfLines={1} style={{ color: theme.textSoft }}>
-                      {video.channelTitle}
+              {!pendingAction ? (
+                <View
+                  className="absolute inset-0 items-center justify-center"
+                  pointerEvents="none"
+                >
+                  <View
+                    style={{
+                      backgroundColor: 'rgba(0,0,0,0.48)',
+                      borderRadius: 999,
+                      padding: 14,
+                    }}
+                  >
+                    <Ionicons color="#fff" name="play" size={26} />
+                  </View>
+                </View>
+              ) : (
+                <View
+                  className="absolute inset-0 items-center justify-center"
+                  style={{ backgroundColor: 'rgba(0,0,0,0.32)' }}
+                  pointerEvents="none"
+                >
+                  <ActivityIndicator color="#fff" size="large" />
+                </View>
+              )}
+
+              <View
+                style={{
+                  backgroundColor: 'rgba(0,0,0,0.72)',
+                  borderRadius: 6,
+                  bottom: 10,
+                  paddingHorizontal: 7,
+                  paddingVertical: 3,
+                  position: 'absolute',
+                  right: 10,
+                }}
+              >
+                <Text className="text-[12px] font-bold" style={{ color: '#fff' }}>
+                  {secondsToLabel(video.durationSeconds)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ gap: 6, padding: 14 }}>
+              <View className="flex-row items-center gap-2">
+                <Tag
+                  label={video.source === 'trending' ? 'Trending' : 'Assinatura'}
+                  tone={video.source === 'trending' ? 'accent' : 'neutral'}
+                />
+                {isWatched ? (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                      backgroundColor: theme.successSoft,
+                      borderRadius: 99,
+                      paddingHorizontal: 10,
+                      paddingVertical: 3,
+                    }}
+                  >
+                    <Ionicons color={theme.success} name="checkmark-circle" size={13} />
+                    <Text style={{ color: theme.success, fontSize: 12, fontWeight: '700' }}>
+                      Visto
                     </Text>
                   </View>
-
-                  {pendingAction ? (
-                    <ActivityIndicator color={theme.primary} size="small" />
-                  ) : (
-                    <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: theme.surfaceAlt }}>
-                      <Text className="text-[11px] font-bold" style={{ color: theme.text }}>
-                        {secondsToLabel(video.durationSeconds)}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                <View className="flex-row items-center gap-2">
-                  {video.source === 'trending' ? <Tag label="trending" tone="accent" /> : null}
-                  <Text className="text-[12px] font-medium" style={{ color: theme.textMuted }}>
-                    Toque para assistir
-                  </Text>
-                </View>
+                ) : null}
               </View>
+
+              <Text
+                className="text-[20px] font-extrabold leading-[26px]"
+                numberOfLines={3}
+                style={{ color: theme.text }}
+              >
+                {video.title}
+              </Text>
+
+              <Text className="text-[13px]" numberOfLines={1} style={{ color: theme.textSoft }}>
+                {video.channelTitle}
+              </Text>
             </View>
           </Panel>
         </Pressable>
-      </Swipeable>
+      </TodaySwipeRow>
 
       <Modal
         animationType="slide"
@@ -256,7 +326,10 @@ export function VideoCard({
               allowsInlineMediaPlayback
               mediaPlaybackRequiresUserAction={false}
               source={{
-                uri: `https://www.youtube.com/embed/${video.videoId}?autoplay=1&playsinline=1`,
+                headers: {
+                  Referer: YOUTUBE_EMBED_REFERRER,
+                },
+                uri: getYoutubeEmbedUri(video.videoId),
               }}
               style={{ flex: 1 }}
             />

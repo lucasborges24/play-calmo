@@ -231,7 +231,6 @@ export async function refillPlan(planId: number): Promise<void> {
       and(
         eq(schema.dailyPlanVideos.planId, planId),
         isNull(schema.dailyPlanVideos.removedAt),
-        isNull(schema.videos.watchedAt),
         isNull(schema.videos.excludedAt),
       ),
     );

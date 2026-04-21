@@ -30,6 +30,17 @@ export async function restoreExcludedVideo(videoId: string): Promise<void> {
 }
 
 export async function removeFromToday(videoId: string): Promise<void> {
+  const videos = await db
+    .select({ watchedAt: schema.videos.watchedAt })
+    .from(schema.videos)
+    .where(eq(schema.videos.videoId, videoId))
+    .limit(1);
+  const video = videos[0];
+
+  if (video?.watchedAt) {
+    return;
+  }
+
   const today = getTodayDateString();
   const plans = await db
     .select({ id: schema.dailyPlans.id })
@@ -42,15 +53,22 @@ export async function removeFromToday(videoId: string): Promise<void> {
     return;
   }
 
+  const removedAt = Date.now();
+
   await db
     .update(schema.dailyPlanVideos)
-    .set({ removedAt: Date.now() })
+    .set({ removedAt })
     .where(
       and(
         eq(schema.dailyPlanVideos.planId, plan.id),
         eq(schema.dailyPlanVideos.videoId, videoId),
       ),
     );
+
+  await db
+    .update(schema.videos)
+    .set({ excludedAt: removedAt })
+    .where(eq(schema.videos.videoId, videoId));
 
   await refillPlan(plan.id);
 }

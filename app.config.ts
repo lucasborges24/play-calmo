@@ -3,12 +3,43 @@ import 'dotenv/config';
 import type { ExpoConfig } from 'expo/config';
 
 // usesCleartextTraffic is a valid Expo Android config but missing from the TS types.
+type ExpoPlugin = NonNullable<ExpoConfig['plugins']>[number];
+
+const plugins: ExpoPlugin[] = [];
+
+if (process.env.SENTRY_ORG && process.env.SENTRY_PROJECT) {
+  plugins.push([
+    '@sentry/react-native/expo',
+    {
+      organization: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+    },
+  ]);
+}
+
+plugins.push(
+  'expo-router',
+  'expo-screen-orientation',
+  'expo-secure-store',
+  'expo-sqlite',
+  'expo-background-fetch',
+  'expo-task-manager',
+  [
+    'expo-notifications',
+    {
+      icon: './assets/brand/icon-192.png',
+      color: '#E53535',
+      androidMode: 'default',
+    },
+  ],
+);
+
 const config: ExpoConfig & { android: { usesCleartextTraffic: boolean } } = {
   name: 'play calmo',
   slug: 'ytcurator',
   owner: 'lucasborges24',
   version: '0.1.0',
-  orientation: 'portrait',
   icon: './assets/brand/icon-1024.png',
   scheme: 'playcalmo',
   userInterfaceStyle: 'automatic',
@@ -32,33 +63,7 @@ const config: ExpoConfig & { android: { usesCleartextTraffic: boolean } } = {
   web: {
     favicon: './assets/brand/favicon-32.png',
   },
-  plugins: [
-    ...(process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
-      ? [
-          [
-            '@sentry/react-native/expo',
-            {
-              organization: process.env.SENTRY_ORG,
-              project: process.env.SENTRY_PROJECT,
-              authToken: process.env.SENTRY_AUTH_TOKEN,
-            },
-          ] as const,
-        ]
-      : []),
-    'expo-router',
-    'expo-secure-store',
-    'expo-sqlite',
-    'expo-background-fetch',
-    'expo-task-manager',
-    [
-      'expo-notifications',
-      {
-        icon: './assets/brand/icon-192.png',
-        color: '#E53535',
-        androidMode: 'default',
-      },
-    ],
-  ],
+  plugins,
   experiments: {
     typedRoutes: true,
   },
