@@ -1,174 +1,300 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { FlashList } from '@shopify/flash-list';
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useDemoStore } from '@/shared/state/demo-store';
+import { excludeVideo, markAsWatched, restoreExcludedVideo, unmarkAsWatched } from '@/features/timeline/actions';
+import { CompactVideoCard, type CompactVideoAction } from '@/features/library/components/CompactVideoCard';
+import {
+  getLibraryVideos,
+  mapLibraryVideos,
+  type LibraryFilter,
+  type LibraryVideo,
+} from '@/features/library/queries';
 import { useAppTheme } from '@/shared/theme/provider';
 import { EmptyState } from '@/shared/ui/empty-state';
-import {
-  AppScrollScreen,
-  MetricCard,
-  Panel,
-  ScreenHeader,
-  SectionHeading,
-  Tag,
-} from '@/shared/ui/layout';
+import { Panel, ScreenHeader } from '@/shared/ui/layout';
 import { SegmentedControl } from '@/shared/ui/segmented-control';
 
 const SEGMENTS = [
-  { label: 'Fila', value: 'queue' },
-  { label: 'Vistos', value: 'watched' },
-  { label: 'Ocultos', value: 'hidden' },
+  { label: 'Não assistidos', value: 'unwatched' },
+  { label: 'Assistidos', value: 'watched' },
+  { label: 'Excluídos', value: 'excluded' },
 ] as const;
 
-type SegmentValue = (typeof SEGMENTS)[number]['value'];
+const COPY_BY_FILTER: Record<
+  LibraryFilter,
+  {
+    countLabel: string;
+    emptyDescription: string;
+    emptyIcon: React.ComponentProps<typeof Ionicons>['name'];
+    emptyTitle: string;
+    subtitle: string;
+  }
+> = {
+  unwatched: {
+    countLabel: 'Não assistidos',
+    emptyDescription: 'Vídeos elegíveis para voltar ao seu radar aparecem aqui.',
+    emptyIcon: 'time-outline',
+    emptyTitle: 'Nada pendente',
+    subtitle: 'Vídeos ainda candidatos para a sua curadoria local.',
+  },
+  watched: {
+    countLabel: 'Assistidos',
+    emptyDescription: 'Tudo o que você marcou como visto fica guardado nesta aba.',
+    emptyIcon: 'checkmark-circle-outline',
+    emptyTitle: 'Nada assistido ainda',
+    subtitle: 'Histórico local do que já cumpriu o papel no seu dia.',
+  },
+  excluded: {
+    countLabel: 'Excluídos',
+    emptyDescription: 'Itens escondidos continuam disponíveis para restauração por aqui.',
+    emptyIcon: 'eye-off-outline',
+    emptyTitle: 'Nada excluído',
+    subtitle: 'Conteúdos retirados da seleção, mas ainda recuperáveis.',
+  },
+};
 
 export default function LibraryScreen() {
-  const { restoreVideo, removedVideos, videos } = useDemoStore();
   const { theme } = useAppTheme();
-  const [segment, setSegment] = useState<SegmentValue>('queue');
+  const insets = useSafeAreaInsets();
+  const [filter, setFilter] = useState<LibraryFilter>('unwatched');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  const queueVideos = videos.filter((video) => !video.removed && !video.watched);
-  const watchedVideos = videos.filter((video) => video.watched);
-  const activeVideos =
-    segment === 'queue'
-      ? queueVideos
-      : segment === 'watched'
-        ? watchedVideos
-        : removedVideos;
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [search]);
+
+  const { data: libraryRows } = useLiveQuery(
+    getLibraryVideos(filter, debouncedSearch),
+    [filter, debouncedSearch],
+  );
+  const isLoading = libraryRows === undefined;
+  const videos = mapLibraryVideos(libraryRows);
+  const copy = COPY_BY_FILTER[filter];
+  const hasSearch = debouncedSearch.length > 0;
+
+  const handleMarkWatched = async (videoId: string) => {
+    try {
+      await markAsWatched(videoId);
+    } catch (error) {
+      Alert.alert('Não foi possível marcar como visto.', 'Tente novamente.');
+      throw error;
+    }
+  };
+
+  const handleExclude = async (videoId: string) => {
+    try {
+      await excludeVideo(videoId);
+    } catch (error) {
+      Alert.alert('Não foi possível excluir o vídeo.', 'Tente novamente.');
+      throw error;
+    }
+  };
+
+  const handleUnmarkWatched = async (videoId: string) => {
+    try {
+      await unmarkAsWatched(videoId);
+    } catch (error) {
+      Alert.alert('Não foi possível desfazer o visto.', 'Tente novamente.');
+      throw error;
+    }
+  };
+
+  const handleRestore = async (videoId: string) => {
+    try {
+      await restoreExcludedVideo(videoId);
+    } catch (error) {
+      Alert.alert('Não foi possível restaurar o vídeo.', 'Tente novamente.');
+      throw error;
+    }
+  };
+
+  const getActionsForVideo = (video: LibraryVideo): CompactVideoAction[] => {
+    switch (filter) {
+      case 'unwatched':
+        return [
+          {
+            icon: 'checkmark-outline',
+            key: 'mark-watched',
+            label: 'Marcar como visto',
+            loadingLabel: 'Marcando como visto...',
+            onPress: () => handleMarkWatched(video.videoId),
+          },
+          {
+            destructive: true,
+            icon: 'trash-outline',
+            key: 'exclude',
+            label: 'Excluir',
+            loadingLabel: 'Excluindo...',
+            onPress: () => handleExclude(video.videoId),
+          },
+        ];
+      case 'watched':
+        return [
+          {
+            icon: 'return-up-back-outline',
+            key: 'unmark-watched',
+            label: 'Desmarcar visto',
+            loadingLabel: 'Desmarcando...',
+            onPress: () => handleUnmarkWatched(video.videoId),
+          },
+        ];
+      case 'excluded':
+        return [
+          {
+            icon: 'refresh-outline',
+            key: 'restore',
+            label: 'Restaurar',
+            loadingLabel: 'Restaurando...',
+            onPress: () => handleRestore(video.videoId),
+          },
+        ];
+    }
+  };
 
   return (
-    <AppScrollScreen>
-      <ScreenHeader
-        eyebrow="Biblioteca"
-        subtitle="A tela saiu do placeholder e ganhou segmentos, cartões compactos e estados visuais coerentes com o restante do app."
-        title="O que você já filtrou continua bonito aqui."
-        trailing={
+    <SafeAreaView edges={['left', 'right']} style={{ backgroundColor: theme.background, flex: 1 }}>
+      <View style={{ backgroundColor: theme.background, flex: 1 }}>
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           <View
-            className="items-center justify-center rounded-[20px] px-4 py-3"
-            style={{ backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }}
-          >
-            <Text className="text-[11px] font-bold uppercase tracking-[1.5px]" style={{ color: theme.textMuted }}>
-              Total
-            </Text>
-            <Text className="mt-1 text-[20px] font-extrabold" style={{ color: theme.text }}>
-              {videos.length}
-            </Text>
-          </View>
-        }
-      />
-
-      <Panel style={{ gap: 16 }}>
-        <View className="flex-row gap-3">
-          <MetricCard
-            accent={theme.primary}
-            hint="vídeos aguardando uma sessão"
-            label="Na fila"
-            value={`${queueVideos.length}`}
+            style={{
+              backgroundColor: theme.primarySoft,
+              borderRadius: 180,
+              height: 180,
+              position: 'absolute',
+              right: -60,
+              top: -20,
+              width: 180,
+            }}
           />
-          <MetricCard
-            accent={theme.success}
-            hint="itens que já cumpriram o papel deles"
-            label="Vistos"
-            value={`${watchedVideos.length}`}
-          />
-          <MetricCard
-            accent={theme.accent}
-            hint="conteúdos escondidos do radar"
-            label="Ocultos"
-            value={`${removedVideos.length}`}
+          <View
+            style={{
+              backgroundColor: theme.accentSoft,
+              borderRadius: 160,
+              height: 160,
+              left: -70,
+              position: 'absolute',
+              top: 140,
+              width: 160,
+            }}
           />
         </View>
-      </Panel>
 
-      <View className="gap-4">
-        <SectionHeading
-          detail={`${activeVideos.length} itens`}
-          eyebrow="Organização"
-          title="Troque de segmento sem perder contexto"
-        />
-        <SegmentedControl options={SEGMENTS} onChange={setSegment} value={segment} />
-      </View>
-
-      {activeVideos.length === 0 ? (
-        <EmptyState
-          description="Quando a fila mudar, este espaço já está pronto para receber estados vazios com a mesma linguagem do app."
-          icon={segment === 'hidden' ? 'eye-off-outline' : 'library-outline'}
-          title="Nada por aqui"
-        />
-      ) : (
-        <View className="gap-4">
-          {activeVideos.map((video) => {
-            const tone =
-              segment === 'watched' ? 'success' : segment === 'hidden' ? 'accent' : 'primary';
-
-            return (
-              <Panel key={video.id} style={{ padding: 14 }}>
-                <View className="flex-row gap-4">
+        <FlashList
+          contentContainerStyle={{
+            paddingBottom: insets.bottom + 116,
+            paddingHorizontal: 20,
+            paddingTop: insets.top + 14,
+          }}
+          data={videos}
+          ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
+          keyExtractor={(item) => item.videoId}
+          ListEmptyComponent={
+            isLoading ? (
+              <View className="items-center justify-center" style={{ paddingTop: 40 }}>
+                <ActivityIndicator color={theme.primary} size="large" />
+              </View>
+            ) : (
+              <View style={{ paddingTop: 8 }}>
+                <EmptyState
+                  description={
+                    hasSearch
+                      ? `Nenhum vídeo encontrado para "${debouncedSearch}".`
+                      : copy.emptyDescription
+                  }
+                  icon={hasSearch ? 'search-outline' : copy.emptyIcon}
+                  title={hasSearch ? 'Nada encontrado' : copy.emptyTitle}
+                />
+              </View>
+            )
+          }
+          ListHeaderComponent={
+            <View style={{ gap: 18, paddingBottom: 18 }}>
+              <ScreenHeader
+                eyebrow="Biblioteca"
+                subtitle={copy.subtitle}
+                title="Revise tudo o que já passou pela sua curadoria."
+                trailing={
                   <View
-                    className="overflow-hidden rounded-[20px]"
+                    className="items-center justify-center rounded-[20px] px-4 py-3"
                     style={{
-                      aspectRatio: 16 / 9,
-                      backgroundColor: video.thumbnailColor,
-                      minWidth: 116,
-                      padding: 12,
-                      width: 116,
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                      borderWidth: 1,
                     }}
                   >
-                    <View className="rounded-full bg-black/60 px-3 py-1.5 self-start">
-                      <Text className="text-[11px] font-bold text-white">{video.duration}</Text>
-                    </View>
-                    <View className="mt-auto">
-                      <Text className="text-[12px] font-medium text-white/70">{video.channel}</Text>
-                      <Text className="mt-1 text-[18px] font-extrabold text-white">
-                        {video.label}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View className="flex-1 gap-3">
-                    <View className="gap-2">
-                      <Tag
-                        label={
-                          segment === 'queue'
-                            ? 'Disponível'
-                            : segment === 'watched'
-                              ? 'Assistido'
-                              : 'Ocultado'
-                        }
-                        tone={tone}
-                      />
-                      <Text className="text-[17px] font-bold leading-6" style={{ color: theme.text }}>
-                        {video.title}
-                      </Text>
-                      <Text className="text-[13px] leading-6" style={{ color: theme.textSoft }}>
-                        {video.summary}
-                      </Text>
-                    </View>
-
-                    <Text className="text-[12px] font-medium" style={{ color: theme.textMuted }}>
-                      {video.publishedLabel}
+                    <Text
+                      className="text-center text-[11px] font-bold uppercase tracking-[1.5px]"
+                      style={{ color: theme.textMuted }}
+                    >
+                      {copy.countLabel}
                     </Text>
-
-                    {segment === 'hidden' ? (
-                      <Pressable
-                        className="flex-row items-center gap-2 self-start rounded-full px-4 py-2.5"
-                        onPress={() => restoreVideo(video.id)}
-                        style={{ backgroundColor: theme.surfaceAlt }}
-                      >
-                        <Ionicons color={theme.text} name="return-up-back-outline" size={16} />
-                        <Text className="text-[12px] font-semibold" style={{ color: theme.text }}>
-                          Restaurar à biblioteca
-                        </Text>
-                      </Pressable>
-                    ) : null}
+                    <Text className="mt-1 text-[20px] font-extrabold" style={{ color: theme.text }}>
+                      {videos.length}
+                    </Text>
                   </View>
+                }
+              />
+
+              <Panel style={{ gap: 14 }}>
+                <SegmentedControl options={SEGMENTS} onChange={setFilter} value={filter} />
+
+                <View
+                  className="flex-row items-center gap-3 rounded-[20px] px-4 py-3"
+                  style={{
+                    backgroundColor: theme.surfaceAlt,
+                    borderColor: theme.border,
+                    borderWidth: 1,
+                  }}
+                >
+                  <Ionicons color={theme.textMuted} name="search-outline" size={18} />
+                  <TextInput
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    className="flex-1 text-[15px]"
+                    onChangeText={setSearch}
+                    placeholder="Buscar por título ou canal"
+                    placeholderTextColor={theme.textMuted}
+                    style={{ color: theme.text }}
+                    value={search}
+                  />
+                  {search.length > 0 ? (
+                    <Ionicons
+                      color={theme.textMuted}
+                      name="close-circle"
+                      onPress={() => setSearch('')}
+                      size={18}
+                    />
+                  ) : null}
                 </View>
+
+                <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
+                  Filtro em tempo real com debounce de 300 ms para título e canal.
+                </Text>
               </Panel>
-            );
-          })}
-        </View>
-      )}
-    </AppScrollScreen>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <CompactVideoCard actions={getActionsForVideo(item)} status={filter} video={item} />
+          )}
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+    </SafeAreaView>
   );
 }

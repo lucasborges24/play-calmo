@@ -141,7 +141,7 @@ export default function SignInScreen() {
 
         <View style={{ alignItems: 'center', gap: 8 }}>
           <Text style={{ color: theme.text, fontSize: 26, fontWeight: '800', textAlign: 'center' }}>
-            play calmo
+            Play Calmo
           </Text>
           <Text
             style={{ color: theme.textSoft, fontSize: 15, lineHeight: 22, textAlign: 'center' }}

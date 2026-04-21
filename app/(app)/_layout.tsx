@@ -9,7 +9,6 @@ import { db, schema } from '@/db/client';
 import { useSession } from '@/features/auth/session';
 import { syncSubscriptions } from '@/features/subscriptions/sync';
 import { error as logError } from '@/shared/lib/logger';
-import { DemoStoreProvider } from '@/shared/state/demo-store';
 import { useAppTheme } from '@/shared/theme/provider';
 
 export default function AppLayout() {
@@ -86,45 +85,40 @@ export default function AppLayout() {
   if (!session) return <Redirect href="/sign-in" />;
 
   return (
-    <DemoStoreProvider>
-      <View style={{ flex: 1 }}>
-        <Slot />
+    <View style={{ flex: 1 }}>
+      <Slot />
 
-        {toastMessage ? (
+      {toastMessage ? (
+        <View
+          pointerEvents="none"
+          style={{
+            bottom: insets.bottom + 92,
+            left: 20,
+            position: 'absolute',
+            right: 20,
+          }}
+        >
           <View
-            pointerEvents="none"
             style={{
-              bottom: insets.bottom + 92,
-              left: 20,
-              position: 'absolute',
-              right: 20,
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              borderRadius: 999,
+              borderWidth: 1,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              shadowColor: theme.shadow,
+              shadowOffset: { width: 0, height: 12 },
+              shadowOpacity: theme.dark ? 0.28 : 1,
+              shadowRadius: 18,
+              elevation: 8,
             }}
           >
-            <View
-              style={{
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-                borderRadius: 999,
-                borderWidth: 1,
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                shadowColor: theme.shadow,
-                shadowOffset: { width: 0, height: 12 },
-                shadowOpacity: theme.dark ? 0.28 : 1,
-                shadowRadius: 18,
-                elevation: 8,
-              }}
-            >
-              <Text
-                className="text-center text-[13px] font-semibold"
-                style={{ color: theme.text }}
-              >
-                {toastMessage}
-              </Text>
-            </View>
+            <Text className="text-center text-[13px] font-semibold" style={{ color: theme.text }}>
+              {toastMessage}
+            </Text>
           </View>
-        ) : null}
-      </View>
-    </DemoStoreProvider>
+        </View>
+      ) : null}
+    </View>
   );
 }

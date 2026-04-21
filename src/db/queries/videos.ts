@@ -1,28 +1,68 @@
 import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm';
 
 import { db, schema } from '../client';
-import type { NewVideo } from '../schema';
+import type { NewVideo, Video } from '../schema';
+
+export type VideoWithChannel = Video & {
+  channelTitle: string;
+};
+
+function getVideosBaseQuery() {
+  return db
+    .select({
+      channelTitle: schema.subscriptions.title,
+      video: schema.videos,
+    })
+    .from(schema.videos)
+    .innerJoin(schema.subscriptions, eq(schema.videos.channelId, schema.subscriptions.channelId));
+}
+
+function mapVideosWithChannel(
+  rows:
+    | {
+        channelTitle: string;
+        video: Video;
+      }[]
+    | undefined,
+) {
+  return (rows ?? []).map<VideoWithChannel>((row) => ({
+    ...row.video,
+    channelTitle: row.channelTitle,
+  }));
+}
 
 export async function getUnwatchedVideos() {
-  return db
-    .select()
-    .from(schema.videos)
-    .where(and(isNull(schema.videos.watchedAt), isNull(schema.videos.excludedAt)))
-    .orderBy(desc(schema.videos.publishedAt));
+  const rows = await getQueueVideosQuery();
+
+  return mapVideosWithChannel(rows);
 }
 
 export async function getWatchedVideos() {
-  return db
-    .select()
-    .from(schema.videos)
+  const rows = await getWatchedVideosQuery();
+
+  return mapVideosWithChannel(rows);
+}
+
+export async function getExcludedVideos() {
+  const rows = await getExcludedVideosQuery();
+
+  return mapVideosWithChannel(rows);
+}
+
+export function getQueueVideosQuery() {
+  return getVideosBaseQuery()
+    .where(and(isNull(schema.videos.watchedAt), isNull(schema.videos.excludedAt)))
+    .orderBy(desc(schema.videos.addedAt));
+}
+
+export function getWatchedVideosQuery() {
+  return getVideosBaseQuery()
     .where(isNotNull(schema.videos.watchedAt))
     .orderBy(desc(schema.videos.watchedAt));
 }
 
-export async function getExcludedVideos() {
-  return db
-    .select()
-    .from(schema.videos)
+export function getExcludedVideosQuery() {
+  return getVideosBaseQuery()
     .where(isNotNull(schema.videos.excludedAt))
     .orderBy(desc(schema.videos.excludedAt));
 }

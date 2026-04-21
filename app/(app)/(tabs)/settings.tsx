@@ -1,5 +1,6 @@
 import { desc, eq } from 'drizzle-orm';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert, Pressable, Switch, Text, TextInput, View } from 'react-native';
@@ -8,8 +9,10 @@ import { db, schema } from '@/db/client';
 import { updateSettings } from '@/db/queries/settings';
 import type { JobRun } from '@/db/schema';
 import { deleteAccountLocally, signOut, useSession } from '@/features/auth/session';
+import { cleanOldWatched } from '@/features/library/maintenance';
+import { useSyncSubscriptions } from '@/features/subscriptions/hooks';
+import { getTodayDateString } from '@/features/timeline/planner';
 import { formatMinutes } from '@/shared/lib/formatters';
-import { useDemoStore } from '@/shared/state/demo-store';
 import { useThemePreference, useResolvedScheme } from '@/shared/hooks/useThemePreference';
 import { useAppTheme } from '@/shared/theme/provider';
 import { PrimaryButton, SecondaryButton, TertiaryButton } from '@/shared/ui/buttons';
@@ -32,6 +35,8 @@ const THEME_OPTIONS = [
 const MAX_SUBS_MIN = 5;
 const MAX_SUBS_MAX = 100;
 const MAX_SUBS_STEP = 5;
+const DAILY_TARGET_MIN = 1;
+const DAILY_TARGET_MAX = 10;
 const VIDEOS_PER_SUB_MIN = 1;
 const VIDEOS_PER_SUB_MAX = 10;
 
@@ -41,34 +46,34 @@ function clamp(value: number, min: number, max: number) {
 
 function formatRelativeTime(timestamp: number | null) {
   if (!timestamp) {
-    return 'nunca';
+    return 'Nunca';
   }
 
   const diffMs = Date.now() - timestamp;
   const diffMinutes = Math.max(0, Math.floor(diffMs / 60_000));
 
   if (diffMinutes < 1) {
-    return 'agora';
+    return 'Agora';
   }
 
   if (diffMinutes < 60) {
-    return `há ${diffMinutes} min`;
+    return `Há ${diffMinutes} min`;
   }
 
   const diffHours = Math.floor(diffMinutes / 60);
 
   if (diffHours < 24) {
-    return `há ${diffHours} h`;
+    return `Há ${diffHours} h`;
   }
 
   const diffDays = Math.floor(diffHours / 24);
 
   if (diffDays < 30) {
-    return `há ${diffDays} d`;
+    return `Há ${diffDays} d`;
   }
 
   const diffMonths = Math.floor(diffDays / 30);
-  return `há ${Math.max(diffMonths, 1)} mês${diffMonths === 1 ? '' : 'es'}`;
+  return `Há ${Math.max(diffMonths, 1)} mês${diffMonths === 1 ? '' : 'es'}`;
 }
 
 function getLastRunTimestamp(lastJobRun: JobRun | null, fallback: number | null) {
@@ -82,36 +87,35 @@ function getLastRunTimestamp(lastJobRun: JobRun | null, fallback: number | null)
 export default function SettingsScreen() {
   const router = useRouter();
   const session = useSession();
-  const [confirmDecrease, setConfirmDecrease] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmCleanup, setConfirmCleanup] = useState(false);
+  const [isCleaningWatched, setIsCleaningWatched] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [trendingRegionInput, setTrendingRegionInput] = useState('BR');
   const [maxSubsTrackWidth, setMaxSubsTrackWidth] = useState(0);
-  const {
-    channels,
-    goalMinutes,
-    lastIncreasedDate,
-    lastSyncLabel,
-    noteGoalIncrease,
-    setGoalMinutes,
-    syncSubscriptions,
-  } = useDemoStore();
   const { theme } = useAppTheme();
   const { preference, setPreference } = useThemePreference();
   const resolvedScheme = useResolvedScheme();
+  const syncMutation = useSyncSubscriptions();
   const { data: settingsData } = useLiveQuery(
     db.select().from(schema.settings).where(eq(schema.settings.id, 1)).limit(1),
   );
   const { data: lastJobRunData } = useLiveQuery(
     db.select().from(schema.jobRuns).orderBy(desc(schema.jobRuns.startedAt)).limit(1),
   );
+  const todayDate = getTodayDateString();
+  const { data: todayPlanData } = useLiveQuery(
+    db.select().from(schema.dailyPlans).where(eq(schema.dailyPlans.planDate, todayDate)).limit(1),
+  );
 
-  const today = new Date().toISOString().slice(0, 10);
-  const canIncrease = lastIncreasedDate !== today && goalMinutes < 240;
-  const canDecrease = goalMinutes > 30;
   const jobSettings = settingsData?.[0] ?? null;
+  const todayPlan = todayPlanData?.[0] ?? null;
   const lastJobRun = lastJobRunData?.[0] ?? null;
   const lastJobRunTimestamp = getLastRunTimestamp(lastJobRun, jobSettings?.lastJobRunAt ?? null);
+  const dailyTargetHours = clamp(jobSettings?.dailyTargetHours ?? 2, DAILY_TARGET_MIN, DAILY_TARGET_MAX);
+  const canIncrease = dailyTargetHours < DAILY_TARGET_MAX;
+  const canDecrease = dailyTargetHours > DAILY_TARGET_MIN;
+  const lastSyncLabel = formatRelativeTime(jobSettings?.lastSubsSyncAt ?? null);
   const maxSubsPerJob = jobSettings?.maxSubsPerJob ?? 25;
   const videosPerSub = jobSettings?.videosPerSub ?? 5;
   const includeTrending = jobSettings?.includeTrending ?? false;
@@ -127,22 +131,6 @@ export default function SettingsScreen() {
   useEffect(() => {
     setTrendingRegionInput(trendingRegionCode);
   }, [trendingRegionCode]);
-
-  const handleIncrease = () => {
-    if (!canIncrease) return;
-    setGoalMinutes(goalMinutes + 30);
-    noteGoalIncrease(today);
-  };
-
-  const handleDecrease = () => {
-    if (!canDecrease) return;
-    if (!confirmDecrease) {
-      setConfirmDecrease(true);
-      return;
-    }
-    setGoalMinutes(goalMinutes - 30);
-    setConfirmDecrease(false);
-  };
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -176,6 +164,52 @@ export default function SettingsScreen() {
     );
   };
 
+  const runWatchedCleanup = async () => {
+    setIsCleaningWatched(true);
+
+    try {
+      const removed = cleanOldWatched(30);
+
+      Alert.alert(
+        'Limpeza concluída',
+        removed === 1
+          ? '1 vídeo assistido há mais de 30 dias foi apagado.'
+          : `${removed} vídeos assistidos há mais de 30 dias foram apagados.`,
+      );
+    } catch {
+      Alert.alert('Falha na limpeza', 'Não foi possível apagar os assistidos antigos. Tente novamente.');
+    } finally {
+      setIsCleaningWatched(false);
+      setConfirmCleanup(false);
+    }
+  };
+
+  const handleWatchedCleanup = () => {
+    if (isCleaningWatched) {
+      return;
+    }
+
+    if (!confirmCleanup) {
+      setConfirmCleanup(true);
+      return;
+    }
+
+    Alert.alert(
+      'Apagar assistidos antigos',
+      'Isso remove permanentemente do aparelho os vídeos assistidos há mais de 30 dias que não estão em nenhum plano ativo. Continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar',
+          style: 'destructive',
+          onPress: () => {
+            void runWatchedCleanup();
+          },
+        },
+      ],
+    );
+  };
+
   const handleMaxSubsTrackPress = (locationX: number) => {
     if (!jobSettings || maxSubsTrackWidth <= 0) {
       return;
@@ -205,8 +239,21 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleDailyTargetChange = (nextHours: number) => {
+    if (!jobSettings) {
+      return;
+    }
+
+    const safeHours = clamp(nextHours, DAILY_TARGET_MIN, DAILY_TARGET_MAX);
+
+    if (safeHours !== dailyTargetHours) {
+      void updateSettings({ dailyTargetHours: safeHours });
+    }
+  };
+
   const displayName = session?.name ?? session?.email ?? '—';
   const displayEmail = session?.email ?? '';
+  const avatarUrl = session?.avatarUrl ?? null;
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
@@ -222,12 +269,25 @@ export default function SettingsScreen() {
 
         <Panel style={{ gap: 16 }}>
           <View className="flex-row items-center gap-4">
-            <View
-              className="items-center justify-center rounded-[24px]"
-              style={{ backgroundColor: theme.primary, height: 68, width: 68 }}
-            >
-              <Text className="text-[24px] font-extrabold text-white">{initial}</Text>
-            </View>
+            {avatarUrl ? (
+              <Image
+                source={{ uri: avatarUrl }}
+                style={{
+                  backgroundColor: theme.surfaceAlt,
+                  borderRadius: 24,
+                  height: 68,
+                  width: 68,
+                }}
+                transition={120}
+              />
+            ) : (
+              <View
+                className="items-center justify-center rounded-[24px]"
+                style={{ backgroundColor: theme.primary, height: 68, width: 68 }}
+              >
+                <Text className="text-[24px] font-extrabold text-white">{initial}</Text>
+              </View>
+            )}
             <View className="flex-1 gap-1">
               <Text className="text-[20px] font-extrabold" style={{ color: theme.text }}>
                 {displayName}
@@ -278,95 +338,86 @@ export default function SettingsScreen() {
       </View>
 
       <View className="gap-4">
-        <SectionHeading eyebrow="Meta diária" title="Quanto você quer assistir" />
+        <SectionHeading eyebrow="Timeline" title="Quanto cabe no seu dia" />
 
         <Panel style={{ gap: 16 }}>
           <View className="gap-4 rounded-[22px] p-4" style={{ backgroundColor: theme.surfaceAlt }}>
             <View className="flex-row items-center justify-between">
               <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
-                Meta diária
+                Meta diaria
               </Text>
               <Text className="text-[18px] font-extrabold" style={{ color: theme.primary }}>
-                {formatMinutes(goalMinutes)}
+                {dailyTargetHours}h
               </Text>
             </View>
 
-            {confirmDecrease ? (
-              <View className="gap-3">
-                <PrimaryButton label="Confirmar -30 min" onPress={handleDecrease} />
-                <SecondaryButton label="Cancelar" onPress={() => setConfirmDecrease(false)} />
-              </View>
-            ) : (
-              <View className="flex-row items-center gap-3">
-                <Pressable
-                  className="items-center justify-center rounded-[18px]"
-                  disabled={!canDecrease}
-                  onPress={handleDecrease}
-                  style={{
-                    backgroundColor: theme.surface,
-                    height: 48,
-                    opacity: canDecrease ? 1 : 0.4,
-                    width: 48,
-                  }}
-                >
-                  <Text className="text-[24px] font-bold" style={{ color: theme.text }}>
-                    −
-                  </Text>
-                </Pressable>
+            <View className="flex-row items-center gap-3">
+              <Pressable
+                className="items-center justify-center rounded-[18px]"
+                disabled={!canDecrease}
+                onPress={() => handleDailyTargetChange(dailyTargetHours - 1)}
+                style={{
+                  backgroundColor: theme.surface,
+                  height: 48,
+                  opacity: canDecrease ? 1 : 0.4,
+                  width: 48,
+                }}
+              >
+                <Text className="text-[24px] font-bold" style={{ color: theme.text }}>
+                  -
+                </Text>
+              </Pressable>
 
+              <View
+                className="flex-1 overflow-hidden rounded-full"
+                style={{ backgroundColor: theme.surface, height: 8 }}
+              >
                 <View
-                  className="flex-1 overflow-hidden rounded-full"
-                  style={{ backgroundColor: theme.surface, height: 8 }}
-                >
-                  <View
-                    className="h-full rounded-full"
-                    style={{
-                      backgroundColor: theme.primary,
-                      width: `${((goalMinutes - 30) / 210) * 100}%`,
-                    }}
-                  />
-                </View>
-
-                <Pressable
-                  className="items-center justify-center rounded-[18px]"
-                  disabled={!canIncrease}
-                  onPress={handleIncrease}
+                  className="h-full rounded-full"
                   style={{
-                    backgroundColor: canIncrease ? theme.primary : theme.surface,
-                    height: 48,
-                    opacity: canIncrease ? 1 : 0.4,
-                    width: 48,
+                    backgroundColor: theme.primary,
+                    width: `${((dailyTargetHours - DAILY_TARGET_MIN) / (DAILY_TARGET_MAX - DAILY_TARGET_MIN)) * 100}%`,
                   }}
-                >
-                  <Text
-                    className="text-[24px] font-bold"
-                    style={{ color: canIncrease ? '#FFFFFF' : theme.textMuted }}
-                  >
-                    +
-                  </Text>
-                </Pressable>
+                />
               </View>
-            )}
+
+              <Pressable
+                className="items-center justify-center rounded-[18px]"
+                disabled={!canIncrease}
+                onPress={() => handleDailyTargetChange(dailyTargetHours + 1)}
+                style={{
+                  backgroundColor: canIncrease ? theme.primary : theme.surface,
+                  height: 48,
+                  opacity: canIncrease ? 1 : 0.4,
+                  width: 48,
+                }}
+              >
+                <Text
+                  className="text-[24px] font-bold"
+                  style={{ color: canIncrease ? '#FFFFFF' : theme.textMuted }}
+                >
+                  +
+                </Text>
+              </Pressable>
+            </View>
 
             <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
-              {lastIncreasedDate === today
-                ? 'Aumento diário já usado.'
-                : 'Máximo de +30 min por dia.'}
+              A mudanca nao afeta o plano do dia atual. Ela passa a valer a partir de amanha.
             </Text>
           </View>
 
           <View className="flex-row gap-3">
             <MetricCard
               accent={theme.primary}
-              hint="meta de consumo diário"
+              hint="meta usada para gerar os proximos dias"
               label="Meta"
-              value={formatMinutes(goalMinutes)}
+              value={`${dailyTargetHours}h`}
             />
             <MetricCard
               accent={theme.accent}
-              hint="canais ativos no funil"
-              label="Curadoria"
-              value={`${channels.filter((channel) => channel.active).length}`}
+              hint="snapshot salvo para a timeline atual"
+              label="Hoje"
+              value={todayPlan ? formatMinutes(todayPlan.targetMinutes) : 'Sem plano'}
             />
           </View>
         </Panel>
@@ -387,7 +438,15 @@ export default function SettingsScreen() {
             </View>
             <Tag label={lastSyncLabel} tone="accent" />
           </View>
-          <PrimaryButton label="Sincronizar agora" onPress={syncSubscriptions} />
+          <PrimaryButton
+            label={syncMutation.isPending ? 'Sincronizando...' : 'Sincronizar agora'}
+            loading={syncMutation.isPending}
+            onPress={() => {
+              if (!syncMutation.isPending) {
+                syncMutation.mutate();
+              }
+            }}
+          />
         </Panel>
       </View>
 
@@ -632,6 +691,46 @@ export default function SettingsScreen() {
                 : 'Nenhum job executado ainda.'}
             </Text>
           </View>
+        </Panel>
+      </View>
+
+      <View className="gap-4">
+        <SectionHeading eyebrow="Manutenção" title="Histórico local" />
+
+        <Panel style={{ gap: 14 }}>
+          <View className="gap-2">
+            <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
+              Limpar assistidos antigos
+            </Text>
+            <Text className="text-[13px] leading-6" style={{ color: theme.textSoft }}>
+              Apaga permanentemente vídeos assistidos há mais de 30 dias, exceto os que ainda
+              participam de um plano ativo.
+            </Text>
+          </View>
+
+          {confirmCleanup ? (
+            <View className="gap-3">
+              <PrimaryButton
+                fullWidth
+                label={isCleaningWatched ? 'Apagando...' : 'Confirmar limpeza'}
+                loading={isCleaningWatched}
+                onPress={handleWatchedCleanup}
+              />
+              <TertiaryButton
+                label="Cancelar"
+                onPress={() => {
+                  setConfirmCleanup(false);
+                }}
+              />
+            </View>
+          ) : (
+            <SecondaryButton
+              disabled={isCleaningWatched}
+              fullWidth
+              label="Apagar assistidos há mais de 30 dias"
+              onPress={handleWatchedCleanup}
+            />
+          )}
         </Panel>
       </View>
     </AppScrollScreen>

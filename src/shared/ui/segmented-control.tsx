@@ -22,12 +22,10 @@ export function SegmentedControl<T extends string>({
 
   return (
     <View
-      className="flex-row rounded-[20px] p-1"
       style={{
-        backgroundColor: theme.surfaceAlt,
-        borderColor: theme.border,
-        borderWidth: 1,
-        gap: 6,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
       }}
     >
       {options.map((option) => {
@@ -39,21 +37,27 @@ export function SegmentedControl<T extends string>({
             onPress={() => onChange(option.value)}
             style={({ pressed }) => ({
               alignItems: 'center',
-              backgroundColor:
-                active || pressed ? theme.surface : 'transparent',
-              borderRadius: 16,
-              flex: 1,
-              minHeight: 44,
+              backgroundColor: active
+                ? theme.primary
+                : pressed
+                  ? theme.surfaceMuted
+                  : theme.surfaceAlt,
+              borderColor: active ? theme.primary : theme.border,
+              borderRadius: 999,
+              borderWidth: 1,
+              flexDirection: 'row',
               justifyContent: 'center',
-              paddingHorizontal: 10,
+              minHeight: 44,
+              paddingHorizontal: 18,
               paddingVertical: 10,
             })}
           >
             <Text
-              className="text-center text-[12px]"
+              numberOfLines={1}
               style={{
-                color: active ? theme.text : theme.textSoft,
-                fontWeight: active ? '700' : '500',
+                color: active ? '#FFFFFF' : theme.text,
+                fontSize: 15,
+                fontWeight: active ? '700' : '600',
               }}
             >
               {option.label}
