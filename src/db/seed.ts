@@ -6,7 +6,7 @@ export async function seedIfNeeded() {
   if (existing.length === 0) {
     await db.insert(schema.settings).values({
       id: 1,
-      dailyTargetHours: 2,
+      dailyTargetHours: 120,
       maxSubsPerJob: 25,
       videosPerSub: 5,
       includeTrending: false,

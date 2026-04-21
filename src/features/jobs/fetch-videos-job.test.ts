@@ -61,7 +61,7 @@ const baseSettings = {
   videosPerSub: 3,
   includeTrending: false,
   trendingRegionCode: 'BR',
-  dailyTargetHours: 1,
+  dailyTargetHours: 60,
   lastJobRunAt: null,
 };
 

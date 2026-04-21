@@ -40,8 +40,9 @@ const THEME_OPTIONS = [
 const MAX_SUBS_MIN = 5;
 const MAX_SUBS_MAX = 100;
 const MAX_SUBS_STEP = 5;
-const DAILY_TARGET_MIN = 1;
-const DAILY_TARGET_MAX = 10;
+const DAILY_TARGET_MIN = 30;
+const DAILY_TARGET_MAX = 600;
+const DAILY_TARGET_STEP = 30;
 const VIDEOS_PER_SUB_MIN = 1;
 const VIDEOS_PER_SUB_MAX = 10;
 
@@ -117,9 +118,9 @@ export default function SettingsScreen() {
   const todayPlan = todayPlanData?.[0] ?? null;
   const lastJobRun = lastJobRunData?.[0] ?? null;
   const lastJobRunTimestamp = getLastRunTimestamp(lastJobRun, jobSettings?.lastJobRunAt ?? null);
-  const dailyTargetHours = clamp(jobSettings?.dailyTargetHours ?? 2, DAILY_TARGET_MIN, DAILY_TARGET_MAX);
-  const canIncrease = dailyTargetHours < DAILY_TARGET_MAX;
-  const canDecrease = dailyTargetHours > DAILY_TARGET_MIN;
+  const dailyTargetMins = clamp(jobSettings?.dailyTargetHours ?? 120, DAILY_TARGET_MIN, DAILY_TARGET_MAX);
+  const canIncrease = dailyTargetMins < DAILY_TARGET_MAX;
+  const canDecrease = dailyTargetMins > DAILY_TARGET_MIN;
   const lastSyncLabel = formatRelativeTime(jobSettings?.lastSubsSyncAt ?? null);
   const maxSubsPerJob = jobSettings?.maxSubsPerJob ?? 25;
   const videosPerSub = jobSettings?.videosPerSub ?? 5;
@@ -272,16 +273,25 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleDailyTargetChange = (nextHours: number) => {
+  const handleDailyTargetChange = (nextMinutes: number) => {
     if (!jobSettings) {
       return;
     }
 
-    const safeHours = clamp(nextHours, DAILY_TARGET_MIN, DAILY_TARGET_MAX);
+    const safeMins = clamp(nextMinutes, DAILY_TARGET_MIN, DAILY_TARGET_MAX);
 
-    if (safeHours !== dailyTargetHours) {
-      void updateSettings({ dailyTargetHours: safeHours });
+    if (safeMins === dailyTargetMins) {
+      return;
     }
+
+    Alert.alert(
+      'Meta diária',
+      `Alterar para ${formatMinutes(safeMins)}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Confirmar', onPress: () => void updateSettings({ dailyTargetHours: safeMins }) },
+      ],
+    );
   };
 
   const displayName = session?.name ?? session?.email ?? '—';
@@ -380,7 +390,7 @@ export default function SettingsScreen() {
                 Meta diaria
               </Text>
               <Text className="text-[18px] font-extrabold" style={{ color: theme.primary }}>
-                {dailyTargetHours}h
+                {formatMinutes(dailyTargetMins)}
               </Text>
             </View>
 
@@ -388,7 +398,7 @@ export default function SettingsScreen() {
               <Pressable
                 className="items-center justify-center rounded-[18px]"
                 disabled={!canDecrease}
-                onPress={() => handleDailyTargetChange(dailyTargetHours - 1)}
+                onPress={() => handleDailyTargetChange(dailyTargetMins - DAILY_TARGET_STEP)}
                 style={{
                   backgroundColor: theme.surface,
                   height: 48,
@@ -409,7 +419,7 @@ export default function SettingsScreen() {
                   className="h-full rounded-full"
                   style={{
                     backgroundColor: theme.primary,
-                    width: `${((dailyTargetHours - DAILY_TARGET_MIN) / (DAILY_TARGET_MAX - DAILY_TARGET_MIN)) * 100}%`,
+                    width: `${((dailyTargetMins - DAILY_TARGET_MIN) / (DAILY_TARGET_MAX - DAILY_TARGET_MIN)) * 100}%`,
                   }}
                 />
               </View>
@@ -417,7 +427,7 @@ export default function SettingsScreen() {
               <Pressable
                 className="items-center justify-center rounded-[18px]"
                 disabled={!canIncrease}
-                onPress={() => handleDailyTargetChange(dailyTargetHours + 1)}
+                onPress={() => handleDailyTargetChange(dailyTargetMins + DAILY_TARGET_STEP)}
                 style={{
                   backgroundColor: canIncrease ? theme.primary : theme.surface,
                   height: 48,
@@ -444,7 +454,7 @@ export default function SettingsScreen() {
               accent={theme.primary}
               hint="meta usada para gerar os proximos dias"
               label="Meta"
-              value={`${dailyTargetHours}h`}
+              value={formatMinutes(dailyTargetMins)}
             />
             <MetricCard
               accent={theme.accent}

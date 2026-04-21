@@ -36,8 +36,8 @@ import { PrimaryButton, SecondaryButton } from '@/shared/ui/buttons';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Panel, Tag } from '@/shared/ui/layout';
 
-function isValidDailyTarget(hours: number | null | undefined): hours is number {
-  return typeof hours === 'number' && Number.isInteger(hours) && hours >= 1 && hours <= 10;
+function isValidDailyTarget(minutes: number | null | undefined): minutes is number {
+  return typeof minutes === 'number' && Number.isInteger(minutes) && minutes >= 30 && minutes <= 600;
 }
 
 export default function HomeScreen() {
@@ -56,7 +56,7 @@ export default function HomeScreen() {
   const plan = todayPlanData?.plan ?? null;
   const videos = todayPlanData?.videos ?? [];
   const hasValidTarget = isValidDailyTarget(settings?.dailyTargetHours);
-  const targetMinutes = plan?.targetMinutes ?? (hasValidTarget ? settings.dailyTargetHours * 60 : 0);
+  const targetMinutes = plan?.targetMinutes ?? (hasValidTarget ? settings.dailyTargetHours : 0);
   const targetSeconds = targetMinutes * 60;
   const totalSeconds = videos.reduce((sum, video) => sum + video.durationSeconds, 0);
   const bounds = getPlanMarginBounds(targetMinutes);
@@ -299,7 +299,7 @@ export default function HomeScreen() {
                         onPress={() => {
                           void db
                             .update(schema.settings)
-                            .set({ dailyTargetHours: 2 })
+                            .set({ dailyTargetHours: 120 })
                             .where(eq(schema.settings.id, 1));
                         }}
                       />

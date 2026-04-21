@@ -203,7 +203,7 @@ export async function getOrCreateTodayPlan(): Promise<{ planId: number; isNew: b
   }
 
   const settings = await getSettings();
-  const { planId } = await generateDailyPlan(today, settings.dailyTargetHours * 60);
+  const { planId } = await generateDailyPlan(today, settings.dailyTargetHours);
 
   return { planId, isNew: true };
 }
