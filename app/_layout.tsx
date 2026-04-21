@@ -7,7 +7,8 @@ import {
   useFonts,
 } from '@expo-google-fonts/dm-sans';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { useRouter, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -16,12 +17,25 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { MigrationsGate } from '@/db/MigrationsGate';
+import { runFetchVideosJob } from '@/features/jobs/fetch-videos-job';
+import { initSentry, wrap as sentryWrap } from '@/shared/lib/sentry';
 import { loadThemePreference } from '@/shared/hooks/useThemePreference';
 import { AppThemeProvider, useAppTheme } from '@/shared/theme/provider';
 import { buildNavigationTheme } from '@/shared/theme/navigation';
 import { ThemeProvider } from '@react-navigation/native';
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
+
 SplashScreen.preventAutoHideAsync();
+initSentry();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,6 +49,19 @@ const queryClient = new QueryClient({
 
 function RootNavigator() {
   const { theme } = useAppTheme();
+  const router = useRouter();
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as { action?: string };
+      if (data?.action === 'run-job') {
+        router.navigate('/');
+        void runFetchVideosJob('manual');
+      }
+    });
+
+    return () => subscription.remove();
+  }, [router]);
 
   return (
     <ThemeProvider value={buildNavigationTheme(theme)}>
@@ -47,7 +74,7 @@ function RootNavigator() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded, fontsError] = useFonts({
     DMSans_400Regular,
     DMSans_700Bold,
@@ -80,3 +107,5 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+export default sentryWrap(RootLayout);

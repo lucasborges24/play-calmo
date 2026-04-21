@@ -7,8 +7,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { db, schema } from '@/db/client';
 import { useSession } from '@/features/auth/session';
+import { registerBackgroundFetch } from '@/features/jobs/background';
+import { useForegroundCatchUp } from '@/features/jobs/foreground-catchup';
+import { setupNotificationChannel } from '@/features/notifications/daily-reminder';
 import { syncSubscriptions } from '@/features/subscriptions/sync';
-import { error as logError } from '@/shared/lib/logger';
+import { error as logError, warn as logWarn } from '@/shared/lib/logger';
 import { useAppTheme } from '@/shared/theme/provider';
 
 export default function AppLayout() {
@@ -18,6 +21,9 @@ export default function AppLayout() {
   const [ready, setReady] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const initialSyncUserRef = useRef<string | null>(null);
+  const backgroundFetchRegisteredRef = useRef(false);
+
+  useForegroundCatchUp();
   const { data: settingsData } = useLiveQuery(
     db.select().from(schema.settings).where(eq(schema.settings.id, 1)).limit(1),
   );
@@ -80,6 +86,22 @@ export default function AppLayout() {
       cancelled = true;
     };
   }, [session, settings]);
+
+  useEffect(() => {
+    if (!session || backgroundFetchRegisteredRef.current) {
+      return;
+    }
+
+    backgroundFetchRegisteredRef.current = true;
+
+    setupNotificationChannel().catch((err: unknown) => {
+      logWarn('Failed to setup notification channel', { err });
+    });
+
+    registerBackgroundFetch().catch((err: unknown) => {
+      logWarn('Failed to register background fetch', { err });
+    });
+  }, [session]);
 
   if (!ready) return <View style={{ flex: 1 }} />;
   if (!session) return <Redirect href="/sign-in" />;

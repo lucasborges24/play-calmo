@@ -59,7 +59,12 @@ function write(level: LogLevel, ...args: unknown[]) {
     }
   }
 
-  // TODO(phase-9): send sanitized logs to Sentry instead of the console in production.
+  // In production, forward warn/error to Sentry as breadcrumbs for context trail.
+  if (level === 'warn' || level === 'error') {
+    const { addBreadcrumb } = require('@sentry/react-native') as typeof import('@sentry/react-native');
+    const sentryLevel = level === 'warn' ? 'warning' : 'error';
+    addBreadcrumb({ message: String(sanitizedArgs[0]), level: sentryLevel, data: sanitizedArgs[1] as Record<string, unknown> });
+  }
 }
 
 export function debug(...args: unknown[]) {

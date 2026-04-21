@@ -240,7 +240,7 @@ export default function LibraryScreen() {
                   >
                     <Text
                       className="text-center text-[11px] font-bold uppercase tracking-[1.5px]"
-                      style={{ color: theme.textMuted }}
+                      style={{ color: theme.textSoft }}
                     >
                       {copy.countLabel}
                     </Text>

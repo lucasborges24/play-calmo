@@ -38,7 +38,9 @@ export function PrimaryButton({ label, onPress, disabled, loading, fullWidth }: 
       })}
     >
       {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
-      <Text className="text-[14px] font-bold text-white">{label}</Text>
+      <Text className="text-[14px] font-bold" style={{ color: disabled ? theme.textMuted : '#FFFFFF' }}>
+        {label}
+      </Text>
     </Pressable>
   );
 }

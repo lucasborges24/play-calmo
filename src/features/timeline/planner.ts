@@ -72,7 +72,7 @@ function isBetterPlan(
   return nextTotal > currentTotal;
 }
 
-function pickVideosForPlan({
+export function pickVideosForPlan({
   candidates,
   initialTotal = 0,
   lower,

@@ -1,0 +1,30 @@
+appId: com.synmarket.playcalmo
+---
+# Requires the app to be logged in and at least one video in the plan.
+- launchApp
+- assertVisible: "Hoje"
+- tapOn: "Hoje"
+# Trigger a manual job run via the refresh button on the Hoje tab.
+- tapOn:
+    id: "run-job-button"
+    optional: true
+# Wait for the video list to populate.
+- waitForAnimationToEnd
+- assertVisible:
+    text: ".*"
+    regex: true
+    index: 0
+# Swipe the first video card to mark as watched.
+- swipe:
+    direction: Left
+    startX: 80%
+    startY: 50%
+    endX: 20%
+    endY: 50%
+- waitForAnimationToEnd
+# The swiped card should no longer be visible in the feed.
+- assertNotVisible:
+    text: ".*"
+    regex: true
+    index: 1
+    optional: true

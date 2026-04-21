@@ -3,12 +3,17 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, Pressable, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 
 import { db, schema } from '@/db/client';
 import { updateSettings } from '@/db/queries/settings';
 import type { JobRun } from '@/db/schema';
 import { deleteAccountLocally, signOut, useSession } from '@/features/auth/session';
+import {
+  cancelDailyReminder,
+  requestNotificationPermission,
+  scheduleDailyReminder,
+} from '@/features/notifications/daily-reminder';
 import { cleanOldWatched } from '@/features/library/maintenance';
 import { useSyncSubscriptions } from '@/features/subscriptions/hooks';
 import { getTodayDateString } from '@/features/timeline/planner';
@@ -120,6 +125,8 @@ export default function SettingsScreen() {
   const videosPerSub = jobSettings?.videosPerSub ?? 5;
   const includeTrending = jobSettings?.includeTrending ?? false;
   const trendingRegionCode = jobSettings?.trendingRegionCode ?? 'BR';
+  const notificationsEnabled = jobSettings?.notificationsEnabled ?? false;
+  const notificationHour = jobSettings?.notificationHour ?? 7;
   const maxSubsRatio =
     (clamp(maxSubsPerJob, MAX_SUBS_MIN, MAX_SUBS_MAX) - MAX_SUBS_MIN) /
     (MAX_SUBS_MAX - MAX_SUBS_MIN);
@@ -236,6 +243,32 @@ export default function SettingsScreen() {
 
     if (sanitized !== trendingRegionCode) {
       void updateSettings({ trendingRegionCode: sanitized });
+    }
+  };
+
+  const handleNotificationsToggle = async (enabled: boolean) => {
+    if (enabled) {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        Alert.alert(
+          'Permissão negada',
+          'Ative as notificações nas configurações do sistema para usar esse recurso.',
+        );
+        return;
+      }
+      await updateSettings({ notificationsEnabled: true });
+      await scheduleDailyReminder(notificationHour);
+    } else {
+      await updateSettings({ notificationsEnabled: false });
+      await cancelDailyReminder();
+    }
+  };
+
+  const handleNotificationHourChange = async (hour: number) => {
+    const safeHour = Math.max(0, Math.min(23, hour));
+    await updateSettings({ notificationHour: safeHour });
+    if (notificationsEnabled) {
+      await scheduleDailyReminder(safeHour);
     }
   };
 
@@ -690,6 +723,72 @@ export default function SettingsScreen() {
                 ? `${lastJobRun.subsProcessed ?? 0} canais processados, ${lastJobRun.videosAdded ?? 0} vídeos adicionados`
                 : 'Nenhum job executado ainda.'}
             </Text>
+          </View>
+        </Panel>
+      </View>
+
+      <View className="gap-4">
+        <SectionHeading eyebrow="Notificações" title="Lembrete diário" />
+
+        <Panel style={{ gap: 16 }}>
+          <View className="gap-4 rounded-[22px] p-4" style={{ backgroundColor: theme.surfaceAlt }}>
+            <View className="flex-row items-center justify-between gap-4">
+              <View className="flex-1 gap-1">
+                <Text className="text-[16px] font-bold" style={{ color: theme.text }}>
+                  Notificação diária
+                </Text>
+                <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
+                  Receba um lembrete para atualizar sua timeline.
+                </Text>
+              </View>
+              <Switch
+                onValueChange={(value) => {
+                  void handleNotificationsToggle(value);
+                }}
+                trackColor={{ false: theme.surfaceMuted, true: theme.primarySoft }}
+                value={notificationsEnabled}
+              />
+            </View>
+
+            {notificationsEnabled ? (
+              <View className="gap-2">
+                <Text className="text-[13px] font-semibold" style={{ color: theme.text }}>
+                  Horário do lembrete
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+                >
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <Pressable
+                      key={h}
+                      onPress={() => void handleNotificationHourChange(h)}
+                      style={{
+                        alignItems: 'center',
+                        backgroundColor: notificationHour === h ? theme.primary : theme.surface,
+                        borderColor: theme.border,
+                        borderRadius: 14,
+                        borderWidth: 1,
+                        justifyContent: 'center',
+                        paddingHorizontal: 14,
+                        paddingVertical: 8,
+                      }}
+                    >
+                      <Text
+                        className="text-[14px] font-semibold"
+                        style={{ color: notificationHour === h ? '#FFFFFF' : theme.text }}
+                      >
+                        {String(h).padStart(2, '0')}h
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+                <Text className="text-[12px] leading-5" style={{ color: theme.textSoft }}>
+                  O sistema operacional pode ajustar o horário exato. Use a notificação como gatilho — não como garantia.
+                </Text>
+              </View>
+            ) : null}
           </View>
         </Panel>
       </View>
