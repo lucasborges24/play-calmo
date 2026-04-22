@@ -54,6 +54,28 @@ export async function nativeGoogleSignIn() {
   };
 }
 
+export async function restoreNativeGoogleSession() {
+  ensureConfigured();
+
+  const response = await GoogleSignin.signInSilently();
+  if (response.type !== 'success') {
+    return null;
+  }
+
+  const tokens = await GoogleSignin.getTokens();
+
+  return {
+    profile: {
+      sub: response.data.user.id,
+      email: response.data.user.email,
+      name: response.data.user.name ?? undefined,
+      picture: response.data.user.photo ?? undefined,
+    },
+    accessToken: tokens.accessToken,
+    expiresAt: Date.now() + ACCESS_TOKEN_TTL_MS,
+  };
+}
+
 export async function refreshNativeGoogleAccessToken() {
   ensureConfigured();
 

@@ -43,7 +43,15 @@ export async function refreshAccessToken(refreshToken: string) {
       grant_type: 'refresh_token',
     }),
   });
-  if (!res.ok) throw new Error(`Refresh failed: ${res.status}`);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      error_description?: string;
+    };
+    throw new Error(
+      `Refresh failed: ${res.status} ${body.error ?? ''} — ${body.error_description ?? ''}`,
+    );
+  }
   const data = (await res.json()) as { access_token: string; expires_in: number };
   return {
     accessToken: data.access_token,
