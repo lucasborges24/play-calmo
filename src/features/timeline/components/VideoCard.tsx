@@ -1,15 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import WebView from 'react-native-webview';
+import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
 
 import type { VideoWithPosition } from '@/db/queries/daily-plan';
 import { TodaySwipeRow } from '@/features/timeline/components/TodaySwipeRow';
@@ -18,24 +10,12 @@ import {
   getTodaySwipeActionWidth,
   type TodaySwipeAction,
 } from '@/features/timeline/today-swipe';
+import { usePlaybackStore } from '@/features/playback/store';
 import { secondsToLabel } from '@/shared/lib/duration';
 import { useAppTheme } from '@/shared/theme/provider';
 import { Panel, Tag } from '@/shared/ui/layout';
 
 const ACTION_WIDTH = getTodaySwipeActionWidth();
-const YOUTUBE_EMBED_ORIGIN = 'https://synmarket.com.br';
-const YOUTUBE_EMBED_REFERRER = `${YOUTUBE_EMBED_ORIGIN}/`;
-
-function getYoutubeEmbedUri(videoId: string): string {
-  const params = new URLSearchParams({
-    autoplay: '1',
-    origin: YOUTUBE_EMBED_ORIGIN,
-    playsinline: '1',
-    widget_referrer: YOUTUBE_EMBED_REFERRER,
-  });
-
-  return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
-}
 
 type VideoCardProps = {
   onExclude: (videoId: string) => Promise<void>;
@@ -112,10 +92,9 @@ export function VideoCard({
   video,
 }: VideoCardProps) {
   const [sheetVisible, setSheetVisible] = useState(false);
-  const [playerVisible, setPlayerVisible] = useState(false);
   const [pendingAction, setPendingAction] = useState<TodaySwipeAction | 'exclude' | null>(null);
+  const openPlayback = usePlaybackStore((s) => s.open);
   const { theme } = useAppTheme();
-  const insets = useSafeAreaInsets();
 
   const handleAction = async (
     action: TodaySwipeAction | 'exclude',
@@ -135,7 +114,7 @@ export function VideoCard({
     }
   };
 
-  const openVideo = () => setPlayerVisible(true);
+  const openVideo = () => openPlayback(video);
 
   const isWatched = Boolean(video.watchedAt);
   const availableSwipeActions = getAvailableTodaySwipeActions(isWatched);
@@ -291,51 +270,6 @@ export function VideoCard({
           </Panel>
         </Pressable>
       </TodaySwipeRow>
-
-      <Modal
-        animationType="slide"
-        onRequestClose={() => setPlayerVisible(false)}
-        statusBarTranslucent
-        visible={playerVisible}
-      >
-        <View style={{ flex: 1, backgroundColor: '#000' }}>
-          <View
-            style={{
-              paddingTop: insets.top + 8,
-              paddingHorizontal: 16,
-              paddingBottom: 8,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
-            <Pressable
-              onPress={() => setPlayerVisible(false)}
-              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-            >
-              <Ionicons color="#fff" name="chevron-down" size={28} />
-            </Pressable>
-            <Text className="flex-1 text-[14px] font-bold" numberOfLines={1} style={{ color: '#fff' }}>
-              {video.title}
-            </Text>
-          </View>
-
-          {playerVisible ? (
-            <WebView
-              allowsFullscreenVideo
-              allowsInlineMediaPlayback
-              mediaPlaybackRequiresUserAction={false}
-              source={{
-                headers: {
-                  Referer: YOUTUBE_EMBED_REFERRER,
-                },
-                uri: getYoutubeEmbedUri(video.videoId),
-              }}
-              style={{ flex: 1 }}
-            />
-          ) : null}
-        </View>
-      </Modal>
 
       <Modal
         animationType="fade"

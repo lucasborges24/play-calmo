@@ -25,6 +25,8 @@ plugins.push(
   'expo-sqlite',
   'expo-background-fetch',
   'expo-task-manager',
+  'expo-audio',
+  './plugins/with-background-playback',
   [
     'expo-notifications',
     {

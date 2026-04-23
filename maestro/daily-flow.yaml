@@ -14,6 +14,16 @@ appId: com.synmarket.playcalmo
     text: ".*"
     regex: true
     index: 0
+# Tap the first video card to open the player.
+- tapOn:
+    point: "50%,40%"
+- waitForAnimationToEnd
+# Send the app to background — should auto-enter PiP / continue audio when gate is enabled.
+- pressKey: Home
+- waitForAnimationToEnd
+# Bring the app back to foreground.
+- launchApp
+- waitForAnimationToEnd
 # Swipe the first video card to mark as watched.
 - swipe:
     direction: Right
