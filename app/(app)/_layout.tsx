@@ -11,6 +11,8 @@ import { useSessionBootstrap } from '@/features/auth/use-session-bootstrap';
 import { registerBackgroundFetch } from '@/features/jobs/background';
 import { useForegroundCatchUp } from '@/features/jobs/foreground-catchup';
 import { setupNotificationChannel } from '@/features/notifications/daily-reminder';
+import { BackgroundPlaybackHost } from '@/features/playback/BackgroundPlaybackHost';
+import { useBackgroundPlayback } from '@/features/playback/useBackgroundPlayback';
 import { syncSubscriptions } from '@/features/subscriptions/sync';
 import { error as logError, warn as logWarn } from '@/shared/lib/logger';
 import { useAppTheme } from '@/shared/theme/provider';
@@ -26,6 +28,7 @@ export default function AppLayout() {
   const backgroundFetchRegisteredRef = useRef(false);
 
   useForegroundCatchUp();
+  useBackgroundPlayback();
   const { data: settingsData } = useLiveQuery(
     db.select().from(schema.settings).where(eq(schema.settings.id, 1)).limit(1),
   );
@@ -111,6 +114,8 @@ export default function AppLayout() {
   return (
     <View style={{ flex: 1 }}>
       <Slot />
+
+      <BackgroundPlaybackHost />
 
       {toastMessage ? (
         <View
