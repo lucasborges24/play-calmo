@@ -6,7 +6,8 @@ import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { db, schema } from '@/db/client';
-import { useSession } from '@/features/auth/session';
+import { useSessionState } from '@/features/auth/session';
+import { useSessionBootstrap } from '@/features/auth/use-session-bootstrap';
 import { registerBackgroundFetch } from '@/features/jobs/background';
 import { useForegroundCatchUp } from '@/features/jobs/foreground-catchup';
 import { setupNotificationChannel } from '@/features/notifications/daily-reminder';
@@ -15,7 +16,8 @@ import { error as logError, warn as logWarn } from '@/shared/lib/logger';
 import { useAppTheme } from '@/shared/theme/provider';
 
 export default function AppLayout() {
-  const session = useSession();
+  const { session, isLoaded: isSessionLoaded } = useSessionState();
+  const authReady = useSessionBootstrap();
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [ready, setReady] = useState(false);
@@ -103,7 +105,7 @@ export default function AppLayout() {
     });
   }, [session]);
 
-  if (!ready) return <View style={{ flex: 1 }} />;
+  if (!ready || !authReady || !isSessionLoaded) return <View style={{ flex: 1 }} />;
   if (!session) return <Redirect href="/sign-in" />;
 
   return (
