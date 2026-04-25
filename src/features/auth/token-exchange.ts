@@ -48,9 +48,8 @@ export async function refreshAccessToken(refreshToken: string) {
       error?: string;
       error_description?: string;
     };
-    throw new Error(
-      `Refresh failed: ${res.status} ${body.error ?? ''} — ${body.error_description ?? ''}`,
-    );
+    const details = [body.error, body.error_description].filter(Boolean).join(' - ');
+    throw new Error(`Refresh failed: ${res.status}${details ? ` ${details}` : ''}`);
   }
   const data = (await res.json()) as { access_token: string; expires_in: number };
   return {

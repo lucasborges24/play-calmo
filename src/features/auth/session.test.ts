@@ -7,7 +7,7 @@ import {
   getRefreshToken,
   saveRefreshToken,
 } from '@/shared/lib/secure-storage';
-import { nativeGoogleSignOut } from './google-native';
+import { nativeGoogleSignOut, restoreNativeGoogleSession } from './google-native';
 import { fetchUserProfile, refreshAccessToken } from './token-exchange';
 
 jest.mock('drizzle-orm/expo-sqlite', () => ({
@@ -56,6 +56,7 @@ const deleteRefreshTokenMock = deleteRefreshToken as jest.Mock;
 const fetchUserProfileMock = fetchUserProfile as jest.Mock;
 const refreshAccessTokenMock = refreshAccessToken as jest.Mock;
 const nativeGoogleSignOutMock = nativeGoogleSignOut as jest.Mock;
+const restoreNativeGoogleSessionMock = restoreNativeGoogleSession as jest.Mock;
 
 function setPlatform(os: 'ios' | 'android') {
   Object.defineProperty(Platform, 'OS', {
@@ -115,6 +116,27 @@ describe('bootstrapSession', () => {
         accessToken: 'fresh-token',
       }),
     );
+    expect(session).toEqual(upsertSessionMock.mock.calls[0]![0]);
+  });
+
+  it('returns the same Android restored session that it persists', async () => {
+    setPlatform('android');
+    getSessionMock.mockResolvedValue(null);
+    restoreNativeGoogleSessionMock.mockResolvedValue({
+      profile: {
+        sub: 'google-user-1',
+        email: 'user@example.com',
+        name: 'User',
+        picture: 'https://example.com/avatar.png',
+      },
+      accessToken: 'fresh-token',
+      expiresAt: Date.now() + 3_600_000,
+    });
+
+    const session = await bootstrapSession();
+
+    expect(upsertSessionMock).toHaveBeenCalledTimes(1);
+    expect(session).toEqual(upsertSessionMock.mock.calls[0]![0]);
   });
 
   it('keeps the current session on transient refresh failures', async () => {

@@ -116,7 +116,7 @@ async function restoreSessionFromStoredCredentials(): Promise<Session | null> {
     }
 
     const nextSession = buildSessionRecord(restored);
-    await persistSession(restored);
+    await persistSessionRecord(nextSession);
     return nextSession;
   }
 
@@ -133,12 +133,7 @@ async function restoreSessionFromStoredCredentials(): Promise<Session | null> {
     expiresAt: nextTokens.expiresAt,
   });
 
-  await persistSession({
-    profile,
-    accessToken: nextTokens.accessToken,
-    refreshToken,
-    expiresAt: nextTokens.expiresAt,
-  });
+  await persistSessionRecord(nextSession, refreshToken);
 
   return nextSession;
 }
@@ -184,19 +179,23 @@ export function useSession() {
   return useSessionState().session;
 }
 
+async function persistSessionRecord(session: Session, refreshToken?: string | null) {
+  if (refreshToken) {
+    await saveRefreshToken(refreshToken);
+  } else {
+    await deleteRefreshToken();
+  }
+
+  await upsertSession(session);
+}
+
 export async function persistSession(params: {
   profile: { sub: string; email: string; name?: string; picture?: string };
   accessToken: string;
   refreshToken?: string | null;
   expiresAt: number;
 }) {
-  if (params.refreshToken) {
-    await saveRefreshToken(params.refreshToken);
-  } else {
-    await deleteRefreshToken();
-  }
-
-  await upsertSession(buildSessionRecord(params));
+  await persistSessionRecord(buildSessionRecord(params), params.refreshToken);
 }
 
 export function isTerminalSessionAuthError(error: unknown) {
